@@ -87,7 +87,7 @@ window.neo.QueryPlanViz =
                 operator = rank.values[i]
                 dx = operator.x + operator.throughput + operatorPadding - x0
                 if dx > 0
-                  operator.x -= operator
+                  operator.x -= operator.throughput
                   x0 = operator.x
 
         for link in links
