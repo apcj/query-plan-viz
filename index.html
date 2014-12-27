@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="QueryPlanViz.js"></script>
+  <script src="example_plans.js"></script>
+  <script src="d3.v3.min.js"></script>
+  <link rel="stylesheet" href="query-plan.css">
+</head>
+<body>
+<svg id="viz" class="query-plan"></svg>
+<script lang="javascript">
+  neo.QueryPlanViz(document.getElementById('viz')).render(example_plan);
+</script>
+</body>
+</html>
