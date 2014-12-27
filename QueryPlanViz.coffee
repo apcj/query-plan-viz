@@ -58,10 +58,6 @@ window.neo.QueryPlanViz =
         explore queryPlan.root, 0
         computeOperatorDimensions operators
 
-#        sankey = d3.sankey()
-#        .nodes(operators)
-#        .links(links);
-
         ranks = d3.nest()
         .key((operator) -> operator.rank)
         .entries(operators)
@@ -124,12 +120,6 @@ window.neo.QueryPlanViz =
           alpha *= .99
 
         console.log ranks
-
-#        sankey
-#        .nodeWidth(operatorHeight)
-#        .nodePadding(operatorPadding)
-#        .size([height, width])
-#        .layout(32)
 
         svg = d3.select($element)
         .attr('viewBox', [-margin, -margin, width + margin * 2, height + margin * 2].join(' '))
