@@ -119,8 +119,6 @@ window.neo.QueryPlanViz =
           collide()
           alpha *= .99
 
-        console.log ranks
-
         svg = d3.select($element)
         .attr('viewBox', [-margin, -margin, width + margin * 2, height + margin * 2].join(' '))
 
