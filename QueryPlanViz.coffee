@@ -128,24 +128,24 @@ window.neo.QueryPlanViz =
         color = d3.scale.category20()
 
         path = (d) ->
-          dy = Math.max(1, d.value)
-          x0 = d.source.y + operatorHeight
-          x1 = d.target.y
-          xi = d3.interpolateNumber(x0, x1)
+          dx = Math.max(1, d.value)
+          y0 = d.source.y + operatorHeight
+          y1 = d.target.y
+          yi = d3.interpolateNumber(y0, y1)
           curvature = .5
-          x2 = xi(curvature)
-          x3 = xi(1 - curvature)
-          midSourceY = d.source.x + (d.source.throughput / 2)
+          y2 = yi(curvature)
+          y3 = yi(1 - curvature)
+          midSourceX = d.source.x + (d.source.throughput / 2)
 
           [
-            'M', (midSourceY + dy / 2), x0,
-            'C', (midSourceY + dy / 2), x2,
-            (d.target.x + dy + d.tx), x3,
-            (d.target.x + dy + d.tx), x1,
-            'L', (d.target.x + d.tx), x1,
-            'C', (d.target.x + d.tx), x3,
-            (midSourceY - dy / 2), x2,
-            (midSourceY - dy / 2), x0,
+            'M', (midSourceX + dx / 2), y0,
+            'C', (midSourceX + dx / 2), y2,
+            (d.target.x + dx + d.tx), y3,
+            (d.target.x + dx + d.tx), y1,
+            'L', (d.target.x + d.tx), y1,
+            'C', (d.target.x + d.tx), y3,
+            (midSourceX - dx / 2), y2,
+            (midSourceX - dx / 2), y0,
             'Z'
           ].join(' ')
 
