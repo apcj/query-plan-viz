@@ -122,7 +122,7 @@ window.neo.QueryPlanViz =
                 operator.x += (center(operator.parent) - center(operator)) * alpha
 
         collide()
-        iterations = 30
+        iterations = 300
         alpha = 1
         while iterations--
           relaxUpwards(alpha)
