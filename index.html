@@ -7,9 +7,17 @@
   <link rel="stylesheet" href="query-plan.css">
 </head>
 <body>
-<svg id="viz" class="query-plan"></svg>
+<div id="examples"></div>
 <script lang="javascript">
-  neo.QueryPlanViz(document.getElementById('viz')).render(example_plan);
+  d3.select("#examples").selectAll('svg.query-plan')
+      .data(d3.values(example_plans))
+      .enter().append('svg')
+      .attr('class', 'query-plan')
+      .each(function(query) {
+        if (query && query.plan) {
+         neo.QueryPlanViz(this).render(query.plan);
+        }
+      });
 </script>
 </body>
 </html>

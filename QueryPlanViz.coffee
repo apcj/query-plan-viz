@@ -117,6 +117,8 @@ window.neo.QueryPlanViz =
           alpha *= .99
 
         svg = d3.select($element)
+        .attr('width', width)
+        .attr('height', height)
         .attr('viewBox', [-margin, -margin, width + margin * 2, height + margin * 2].join(' '))
 
         formatNumber = d3.format(",.0f")
