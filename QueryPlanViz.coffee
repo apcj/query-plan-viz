@@ -131,10 +131,12 @@ window.neo.QueryPlanViz =
           collide()
           alpha *= .99
 
+        width = d3.max(operators, (o) -> o.x) - d3.min(operators, (o) -> o.x) + operatorWidth
+
         svg = d3.select($element)
         .attr('width', width)
         .attr('height', height)
-        .attr('viewBox', [-margin, -margin, width + margin * 2, height + margin * 2].join(' '))
+        .attr('viewBox', [d3.min(operators, (o) -> o.x) - margin, -margin, width + margin * 2, height + margin * 2].join(' '))
 
         formatNumber = d3.format(",.0f")
         format = (d) ->
