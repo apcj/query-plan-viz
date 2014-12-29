@@ -35,16 +35,15 @@ window.neo.QueryPlanViz =
       nonZeroRows = (operator) ->
         Math.max(1, rows(operator))
 
-      computeOperatorDimensions = (operators) ->
-        for operator in operators
-          operator.throughput = Math.max(rows(operator), d3.sum(operator.children, rows))
-
       @render = (queryPlan) ->
         operators = []
         links = []
 
         explore = (operator, rank) ->
           operator.rank = rank
+          operator.throughput = Math.max(rows(operator), d3.sum(operator.children, rows))
+          childrenWidth = d3.sum(operator.children, nonZeroRows)
+          tx = (operator.throughput - childrenWidth) / 2
           operators.push operator
           for child in operator.children
             child.parent = operator
@@ -54,9 +53,10 @@ window.neo.QueryPlanViz =
               target: operator
               value: nonZeroRows(child)
               rows: rows(child)
+              tx: tx
+            tx += nonZeroRows(child)
 
         explore queryPlan.root, 0
-        computeOperatorDimensions operators
 
         ranks = d3.nest()
         .key((operator) -> operator.rank)
@@ -89,9 +89,6 @@ window.neo.QueryPlanViz =
                 if dx > 0
                   operator.x -= operator.throughput
                   x0 = operator.x
-
-        for link in links
-          link.tx = 0
 
         center = (operator) ->
           operator.x + operator.throughput / 2
