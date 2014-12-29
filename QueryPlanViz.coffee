@@ -24,6 +24,7 @@ window.neo = {} unless window.neo
 
 window.neo.QueryPlanViz =
     ($element) ->
+      operatorWidth = 100
       operatorHeight = 20
       operatorPadding = 70
       rankHeight = 50
@@ -37,26 +38,40 @@ window.neo.QueryPlanViz =
 
       @render = (queryPlan) ->
         operators = []
-        links = []
 
-        explore = (operator, rank) ->
-          operator.rank = rank
-          operator.throughput = Math.max(rows(operator), d3.sum(operator.children, rows))
-          childrenWidth = d3.sum(operator.children, nonZeroRows)
-          tx = (operator.throughput - childrenWidth) / 2
+        collectOperators = (operator) ->
           operators.push operator
           for child in operator.children
+            collectOperators child
+
+        collectOperators queryPlan.root
+
+        rowScale = d3.scale.log()
+          .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
+          .range([1, operatorWidth / d3.max(operators, (operator) -> operator.children.length)])
+
+        linkWidth = (operator) ->
+          rowScale(nonZeroRows(operator))
+
+        links = []
+
+        collectLinks = (operator, rank) ->
+          operator.rank = rank
+          operator.throughput = operatorWidth
+          childrenWidth = d3.sum(operator.children, linkWidth)
+          tx = (operator.throughput - childrenWidth) / 2
+          for child in operator.children
             child.parent = operator
-            explore child, rank + 1
+            collectLinks child, rank + 1
             links.push
               source: child
               target: operator
-              value: nonZeroRows(child)
+              value: linkWidth(child)
               rows: rows(child)
               tx: tx
-            tx += nonZeroRows(child)
+            tx += linkWidth(child)
 
-        explore queryPlan.root, 0
+        collectLinks queryPlan.root, 0
 
         ranks = d3.nest()
         .key((operator) -> operator.rank)
@@ -97,7 +112,7 @@ window.neo.QueryPlanViz =
           for rank in ranks
             for operator in rank.values
               if operator.children.length
-                x = d3.sum(operator.children, (child) -> nonZeroRows(child) * center(child)) / d3.sum(operator.children, nonZeroRows)
+                x = d3.sum(operator.children, (child) -> linkWidth(child) * center(child)) / d3.sum(operator.children, linkWidth)
                 operator.x += (x - center(operator)) * alpha
 
         relaxDownwards = (alpha) ->
