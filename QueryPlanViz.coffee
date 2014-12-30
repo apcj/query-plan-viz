@@ -143,6 +143,12 @@ window.neo.QueryPlanViz =
           formatNumber(d) + (if d is 1 then ' row' else ' rows')
         color = d3.scale.category20()
 
+        fat = (d) ->
+          d.value > (d.target.y - d.source.y - operatorHeight) / 2
+
+        thin = (d) ->
+          !fat(d)
+
         path = (d) ->
           dx = Math.max(1, d.value)
           y0 = d.source.y + operatorHeight
@@ -153,26 +159,42 @@ window.neo.QueryPlanViz =
           y3 = yi(1 - curvature)
           midSourceX = d.source.x + (d.source.throughput / 2)
 
-          [
-            'M', (midSourceX + dx / 2), y0,
-            'C', (midSourceX + dx / 2), y2,
-            (d.target.x + dx + d.tx), y3,
-            (d.target.x + dx + d.tx), y1,
-            'L', (d.target.x + d.tx), y1,
-            'C', (d.target.x + d.tx), y3,
-            (midSourceX - dx / 2), y2,
-            (midSourceX - dx / 2), y0,
-            'Z'
-          ].join(' ')
+          if fat(d)
+            [
+              'M', (midSourceX + dx / 2), y0,
+              'C', (midSourceX + dx / 2), y2,
+              (d.target.x + dx + d.tx), y3,
+              (d.target.x + dx + d.tx), y1,
+              'L', (d.target.x + d.tx), y1,
+              'C', (d.target.x + d.tx), y3,
+              (midSourceX - dx / 2), y2,
+              (midSourceX - dx / 2), y0,
+              'Z'
+            ].join(' ')
+          else
+            [
+              "M", midSourceX, y0
+              "C", midSourceX, y2,
+              d.target.x + d.tx + dx / 2, y3,
+              d.target.x + d.tx + dx / 2, y1
+            ].join(' ')
 
         linkElement = svg.append('g').selectAll('.link')
         .data(links)
         .enter().append('g')
         .attr('class', 'link')
+        .classed('fat', fat)
+        .classed('thin', thin)
 
         linkElement
         .append('path')
         .attr('d', path)
+        .attr('stroke-width', (d) ->
+          if thin(d)
+            d.value
+          else
+            null
+        )
 
         linkElement
         .append('text')
