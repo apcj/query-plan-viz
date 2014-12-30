@@ -1,7 +1,12 @@
+body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
 svg.query-plan .operator rect{cursor:move;fill-opacity:.9}
 svg.query-plan .operator tspan{font-size:10px}
-svg.query-plan .operator tspan.operator-name{font-size:7px}
+svg.query-plan .operator tspan.operator-name{font-size:10px}
 svg.query-plan .operator tspan.operator-identifiers{font-family:monospace}
+svg.query-plan .link {font-size: 10px}
 svg.query-plan .link.fat path{fill:#000;fill-opacity:.2}
 svg.query-plan .link.fat:hover path{fill-opacity:.5}
 svg.query-plan .link.thin path{fill:none}

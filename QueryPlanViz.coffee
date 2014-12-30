@@ -25,8 +25,8 @@ window.neo = {} unless window.neo
 window.neo.QueryPlanViz =
     ($element) ->
       operatorWidth = 100
-      operatorHeight = 20
-      operatorPadding = 70
+      operatorHeight = 18
+      operatorPadding = 50
       rankHeight = 50
       margin = 10
 
@@ -221,8 +221,8 @@ window.neo.QueryPlanViz =
         .text((d) -> d.name + '\n' + format(d.value))
 
         textElement = operatorElement.append('text')
-        .attr('y', 15)
-        .attr('x', 0);
+        .attr('y', 13)
+        .attr('x', 2);
 
         textElement.append('tspan')
         .attr('class', 'operator-name')
