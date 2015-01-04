@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="QueryPlanViz.js"></script>
+  <script src="example_plans.js"></script>
+  <script src="d3.v3.min.js"></script>
+  <link rel="stylesheet" href="query-plan.css">
+</head>
+<body>
+<h1>Query PLan Links</h1>
+<label>
+  displacement
+  <input name="displacement" value="100" type="number">
+</label>
+<label>
+  width
+  <input name="width" value="50" type="number">
+</label>
+<label>
+  height
+  <input name="height" value="100" type="number">
+</label>
+<div id="examples"></div>
+<script lang="javascript">
+  var svg = d3.select("#examples").append('svg')
+      .attr('width', 1000)
+      .attr('height', 1000)
+      .attr('viewBox', '-200 -200 1000 1000');
+
+  var thinPath = svg
+      .append('path');
+
+  var fatPath = svg
+      .append('path');
+
+  var operators = svg.selectAll('rect').data(['top', 'bottom'])
+      .enter().append('rect');
+
+  function draw() {
+    var params = {};
+    d3.selectAll('input').each(function() {
+      params[this.name] = parseFloat(this.value);
+    });
+
+    var displacement = params.displacement;
+    var width = params.width;
+    var height = params.height;
+
+    var control1 = (height / 2);
+    var control2 = (height / 2);
+
+    thinPath
+        .attr('d', [
+          "M", 0, 0,
+          "C", 0, control1,
+          displacement, control2,
+          displacement, height
+        ].join(' '))
+        .attr('fill', 'none')
+        .attr('stroke', 'red')
+        .attr('stroke-width', width)
+        .attr('stroke-opacity', 0.3)
+        .attr('stroke-linecap', 'butt');
+
+    var fudge = width/4;
+    fatPath
+        .attr('d', [
+          'M', (width / 2), 0,
+          'C', (width / 2), control1 - fudge,
+          (displacement + width / 2), control2 - fudge,
+          (displacement + width / 2), height,
+          'L', (displacement - width / 2), height,
+          'C', (displacement - width / 2), control2 + fudge,
+          (-width / 2), control1 + fudge,
+          (-width / 2), 0,
+          'Z'
+        ].join(' '))
+        .attr('fill', 'blue')
+        .attr('stroke', 'none')
+        .attr('opacity', 0.3)
+        .attr('stroke-linecap', 'butt');
+
+    operators
+        .attr('x', function(d) { return (d === 'top' ? 0 : displacement) - width / 2 })
+        .attr('y', function(d) { return d === 'top' ? -50 : height })
+        .attr('width', width)
+        .attr('height', 50)
+        .attr('fill', 'none')
+        .attr('stroke', 'red');
+  }
+  d3.selectAll('input').on('input', draw);
+  draw();
+
+</script>
+</body>
+</html>
