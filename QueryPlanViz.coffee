@@ -30,6 +30,16 @@ window.neo.QueryPlanViz =
       rankHeight = 50
       margin = 10
 
+      colors = [
+        { color: '#A5ABB6', 'border-color': '#9AA1AC', 'text-color-internal': '#FFFFFF' }
+        { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
+        { color: '#6DCE9E', 'border-color': '#60B58B', 'text-color-internal': '#FFFFFF' }
+        { color: '#FF756E', 'border-color': '#E06760', 'text-color-internal': '#FFFFFF' }
+        { color: '#DE9BF9', 'border-color': '#BF85D6', 'text-color-internal': '#FFFFFF' }
+        { color: '#FB95AF', 'border-color': '#E0849B', 'text-color-internal': '#FFFFFF' }
+        { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
+      ]
+
       rows = (operator) ->
         operator.Rows || operator.EstimatedRows
 
@@ -141,7 +151,8 @@ window.neo.QueryPlanViz =
         formatNumber = d3.format(",.0f")
         format = (d) ->
           formatNumber(d) + (if d is 1 then ' row' else ' rows')
-        color = d3.scale.category20()
+        color = d3.scale.ordinal()
+        .range(colors);
 
         fat = (d) ->
           d.value > (d.target.y - d.source.y - operatorHeight) / 2
@@ -215,14 +226,16 @@ window.neo.QueryPlanViz =
         operatorElement.append('rect')
         .attr('width', (d) -> Math.max(1, d.throughput))
         .attr('height', operatorHeight)
-        .style('fill', (d) -> d.color = color(d.operatorType))
-        .style('stroke', (d) -> d3.rgb(d.color).darker(2))
+        .attr('rx', 4)
+        .attr('ry', 4)
+        .style('fill', (d) -> color(d.operatorType).color)
         .append('title')
         .text((d) -> d.name + '\n' + format(d.value))
 
         textElement = operatorElement.append('text')
         .attr('y', 13)
-        .attr('x', 2);
+        .attr('x', 2)
+        .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
 
         textElement.append('tspan')
         .attr('class', 'operator-name')
