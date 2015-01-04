@@ -62,7 +62,11 @@
         .attr('stroke-opacity', 0.3)
         .attr('stroke-linecap', 'butt');
 
-    var fudge = width/4;
+    var fudge = width / Math.PI;
+    if (displacement < 0) {
+      fudge *= -1;
+    }
+
     fatPath
         .attr('d', [
           'M', (width / 2), 0,
