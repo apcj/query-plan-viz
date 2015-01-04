@@ -7,8 +7,5 @@ svg.query-plan .operator tspan{font-size:10px}
 svg.query-plan .operator tspan.operator-name{font-size:10px}
 svg.query-plan .operator tspan.operator-identifiers{font-family:monospace}
 svg.query-plan .link {font-size: 10px}
-svg.query-plan .link.fat path{fill:#000;fill-opacity:.2}
-svg.query-plan .link.fat:hover path{fill-opacity:.5}
-svg.query-plan .link.thin path{fill:none}
-svg.query-plan .link.thin path{stroke:#000;stroke-opacity:.2}
-svg.query-plan .link.thin:hover path{stroke-opacity:.5}
+svg.query-plan .link path{fill:#000;fill-opacity:.2}
+svg.query-plan .link:hover path{fill-opacity:.5}

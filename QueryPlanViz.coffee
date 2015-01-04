@@ -58,7 +58,7 @@ window.neo.QueryPlanViz =
 
         rowScale = d3.scale.log()
           .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-          .range([1, operatorWidth / d3.max(operators, (operator) -> operator.children.length)])
+          .range([1, (rankHeight - operatorHeight) / d3.max(operators, (operator) -> operator.children.length)])
 
         linkWidth = (operator) ->
           rowScale(nonZeroRows(operator))
@@ -154,58 +154,41 @@ window.neo.QueryPlanViz =
         color = d3.scale.ordinal()
         .range(colors);
 
-        fat = (d) ->
-          d.value > (d.target.y - d.source.y - operatorHeight) / 2
-
-        thin = (d) ->
-          !fat(d)
-
         path = (d) ->
-          dx = Math.max(1, d.value)
-          y0 = d.source.y + operatorHeight
-          y1 = d.target.y
-          yi = d3.interpolateNumber(y0, y1)
-          curvature = .5
-          y2 = yi(curvature)
-          y3 = yi(1 - curvature)
-          midSourceX = d.source.x + (d.source.throughput / 2)
+          width = Math.max(1, d.value)
+          sourceX = d.source.x + (d.source.throughput / 2)
+          targetX = d.target.x + d.tx
+          controlWidth = width / Math.PI
+          if sourceX > targetX
+            controlWidth *= -1
 
-          if fat(d)
-            [
-              'M', (midSourceX + dx / 2), y0,
-              'C', (midSourceX + dx / 2), y2,
-              (d.target.x + dx + d.tx), y3,
-              (d.target.x + dx + d.tx), y1,
-              'L', (d.target.x + d.tx), y1,
-              'C', (d.target.x + d.tx), y3,
-              (midSourceX - dx / 2), y2,
-              (midSourceX - dx / 2), y0,
-              'Z'
-            ].join(' ')
-          else
-            [
-              "M", midSourceX, y0
-              "C", midSourceX, y2,
-              d.target.x + d.tx + dx / 2, y3,
-              d.target.x + d.tx + dx / 2, y1
-            ].join(' ')
+          sourceY = d.source.y + operatorHeight
+          targetY = d.target.y
+          yi = d3.interpolateNumber(sourceY, targetY)
+          curvature = .5
+          control1 = yi(curvature)
+          control2 = yi(1 - curvature)
+
+          [
+            'M', (sourceX + width / 2), sourceY,
+            'C', (sourceX + width / 2), control1 - controlWidth,
+            (targetX + width), control2 - controlWidth,
+            (targetX + width), targetY,
+            'L', targetX, targetY,
+            'C', targetX, control2 + controlWidth,
+            (sourceX - width / 2), control1 + controlWidth,
+            (sourceX - width / 2), sourceY,
+            'Z'
+          ].join(' ')
 
         linkElement = svg.append('g').selectAll('.link')
         .data(links)
         .enter().append('g')
         .attr('class', 'link')
-        .classed('fat', fat)
-        .classed('thin', thin)
 
         linkElement
         .append('path')
         .attr('d', path)
-        .attr('stroke-width', (d) ->
-          if thin(d)
-            d.value
-          else
-            null
-        )
 
         linkElement
         .append('text')
