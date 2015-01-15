@@ -26,12 +26,6 @@ window.neo = {} unless window.neo
 
 window.neo.QueryPlanViz =
     ($element) ->
-      operatorWidth = 100
-      operatorHeight = (d) -> if d.expanded then 50 else 18
-      operatorPadding = 50
-      rankPadding = 50
-      margin = 10
-
       colors = [
         { color: '#A5ABB6', 'border-color': '#9AA1AC', 'text-color-internal': '#FFFFFF' }
         { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
@@ -42,17 +36,55 @@ window.neo.QueryPlanViz =
         { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
       ]
 
+      color = d3.scale.ordinal()
+      .range(colors);
+
+      # TODO: remove this function once all query plans have numeric counts.
+      parseNumbers = (operator) ->
+        for key in ['Rows', 'EstimatedRows', 'DbHits']
+          if operator[key]
+            operator[key] = parseInt(operator[key])
+        operator
+
       rows = (operator) ->
-        operator.Rows || operator.EstimatedRows
+        operator.Rows || operator.EstimatedRows || 0
 
       nonZeroRows = (operator) ->
         Math.max(1, rows(operator))
+
+      formatNumber = d3.format(",.0f")
+      format = (d) ->
+        formatNumber(d) + (if d is 1 then ' row' else ' rows')
+
+      operatorDetails = (operator) ->
+        return [] unless operator.expanded
+
+        details = []
+        if operator.LegacyExpression || operator.ExpandExpression
+          details.push { key: 'Expression', value: (operator.LegacyExpression || operator.ExpandExpression)}
+        if operator.identifiers
+          details.push { key: 'Identifiers', value: operator.identifiers}
+        if operator.EstimatedRows
+          details.push { key: 'Estimated', value: formatNumber(operator.EstimatedRows)}
+        details.push { key: 'Rows', value: formatNumber(operator.Rows || 0)}
+        details.push { key: 'Db Hits', value: formatNumber(operator.DbHits || 0)}
+
+        for detail in details
+          detail.color = color(operator.operatorType)['text-color-internal']
+        details
+
+      operatorWidth = 150
+      operatorDetailHeight = 12
+      operatorHeight = (d) -> if d.expanded then 20 + operatorDetailHeight * operatorDetails(d).length else 18
+      operatorPadding = 50
+      rankPadding = 50
+      margin = 10
 
       render = (queryPlan) ->
         operators = []
 
         collectOperators = (operator) ->
-          operators.push operator
+          operators.push parseNumbers(operator)
           for child in operator.children
             collectOperators child
 
@@ -155,11 +187,6 @@ window.neo.QueryPlanViz =
         .attr('height', height)
         .attr('viewBox', [d3.min(operators, (o) -> o.x) - margin, -margin - height, width + margin * 2, height + margin * 2].join(' '))
 
-        formatNumber = d3.format(",.0f")
-        format = (d) ->
-          formatNumber(d) + (if d is 1 then ' row' else ' rows')
-        color = d3.scale.ordinal()
-        .range(colors);
 
         path = (d) ->
           width = Math.max(1, d.value)
@@ -219,10 +246,10 @@ window.neo.QueryPlanViz =
         .text((d) ->
           format(d.rows))
 
-        operatorElement = svg.selectAll('.operator')
+        operatorGroup = svg.selectAll('.operator')
         .data(operators)
 
-        operatorElement
+        operatorGroup
         .enter().append('g')
         .attr('class', 'operator')
         .on('click', (d) ->
@@ -230,11 +257,11 @@ window.neo.QueryPlanViz =
           render(queryPlan)
         )
 
-        operatorElement
+        operatorGroup
         .transition()
         .attr('transform', (d) -> "translate(#{d.x},#{d.y})")
 
-        rectangles = operatorElement.selectAll('rect').data((d) -> [d])
+        rectangles = operatorGroup.selectAll('rect').data((d) -> [d])
 
         rectangles.enter().append('rect')
 
@@ -246,14 +273,15 @@ window.neo.QueryPlanViz =
         .attr('ry', 4)
         .style('fill', (d) -> color(d.operatorType).color)
 
-        textElement = operatorElement.selectAll('text').data((d) -> [d])
+        operatorTitleText = operatorGroup.selectAll('text.title').data((d) -> [d])
 
-        textElement.enter().append('text')
-        .attr('y', 13)
+        operatorTitleText.enter().append('text')
+        .attr('class', 'title')
         .attr('x', 2)
+        .attr('y', 13)
         .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
 
-        spans = textElement.selectAll('tspan').data((d) -> [
+        spans = operatorTitleText.selectAll('tspan').data((d) -> [
           { className: 'operator-name', text: d.operatorType },
           { className: 'operator-identifiers', text: d.IntroducedIdentifier, dx: 5}
         ]);
@@ -264,6 +292,19 @@ window.neo.QueryPlanViz =
         .attr('class', (d) -> d.className)
         .text((d) -> d.text)
         .attr('dx', (d) -> d.dx)
+
+        operatorDetailsText = operatorGroup.selectAll('text.detail').data(operatorDetails)
+
+        operatorDetailsText.enter().append('text')
+        .attr('class', 'detail')
+
+        operatorDetailsText
+        .attr('x', 2)
+        .attr('y', (d, i) -> 25 + i * operatorDetailHeight)
+        .text((d) -> "#{d.key}: #{d.value}")
+        .attr('fill', (d) -> d.color)
+
+        operatorDetailsText.exit().remove()
 
       @render = render
 
