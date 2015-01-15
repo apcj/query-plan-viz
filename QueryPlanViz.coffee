@@ -27,9 +27,9 @@ window.neo = {} unless window.neo
 window.neo.QueryPlanViz =
     ($element) ->
       operatorWidth = 100
-      operatorHeight = 18
+      operatorHeight = (d) -> if d.expanded then 50 else 18
       operatorPadding = 50
-      rankHeight = 50
+      rankPadding = 50
       margin = 10
 
       colors = [
@@ -48,7 +48,7 @@ window.neo.QueryPlanViz =
       nonZeroRows = (operator) ->
         Math.max(1, rows(operator))
 
-      @render = (queryPlan) ->
+      render = (queryPlan) ->
         operators = []
 
         collectOperators = (operator) ->
@@ -60,7 +60,7 @@ window.neo.QueryPlanViz =
 
         rowScale = d3.scale.log()
           .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-          .range([1, (rankHeight - operatorHeight) / d3.max(operators, (operator) -> operator.children.length)])
+          .range([1, (rankPadding) / d3.max(operators, (operator) -> operator.children.length)])
 
         linkWidth = (operator) ->
           rowScale(nonZeroRows(operator))
@@ -89,13 +89,16 @@ window.neo.QueryPlanViz =
         .key((operator) -> operator.rank)
         .entries(operators)
 
-        width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operator.throughput + operatorPadding))))
-        height = ranks.length * rankHeight
+        currentY = 0
 
         for rank in ranks
+          currentY -= (d3.max(rank.values, operatorHeight) + rankPadding)
           for operator in rank.values
             operator.x = 0
-            operator.y = height - (operator.rank + 1) * rankHeight
+            operator.y = currentY
+
+        width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operator.throughput + operatorPadding))))
+        height = -currentY
 
         collide = ->
           for rank in ranks
@@ -146,9 +149,11 @@ window.neo.QueryPlanViz =
         width = d3.max(operators, (o) -> o.x) - d3.min(operators, (o) -> o.x) + operatorWidth
 
         svg = d3.select($element)
+
+        svg.transition()
         .attr('width', width)
         .attr('height', height)
-        .attr('viewBox', [d3.min(operators, (o) -> o.x) - margin, -margin, width + margin * 2, height + margin * 2].join(' '))
+        .attr('viewBox', [d3.min(operators, (o) -> o.x) - margin, -margin - height, width + margin * 2, height + margin * 2].join(' '))
 
         formatNumber = d3.format(",.0f")
         format = (d) ->
@@ -164,7 +169,7 @@ window.neo.QueryPlanViz =
           if sourceX > targetX
             controlWidth *= -1
 
-          sourceY = d.source.y + operatorHeight
+          sourceY = d.source.y + operatorHeight(d.source)
           targetY = d.target.y
           yi = d3.interpolateNumber(sourceY, targetY)
           curvature = .5
@@ -183,52 +188,83 @@ window.neo.QueryPlanViz =
             'Z'
           ].join(' ')
 
-        linkElement = svg.append('g').selectAll('.link')
+        linkGroup = svg.selectAll('.link')
         .data(links)
+
+        linkGroup
         .enter().append('g')
         .attr('class', 'link')
 
-        linkElement
+        linkPath = linkGroup.selectAll('path').data((d) -> [d])
+
+        linkPath.enter()
         .append('path')
+
+        linkPath
+        .transition()
         .attr('d', path)
 
-        linkElement
+        linkText = linkGroup.selectAll('text').data((d) -> [d])
+
+        linkText.enter()
         .append('text')
+
+        linkText
+        .transition()
         .attr('x', (d) ->
           d.source.x + d.source.throughput / 2)
         .attr('y', (d) ->
-          d.source.y + 40)
+          d.target.y - 20)
         .attr('text-anchor', 'middle')
         .text((d) ->
           format(d.rows))
 
-        operatorElement = svg.append('g').selectAll('.operator')
+        operatorElement = svg.selectAll('.operator')
         .data(operators)
+
+        operatorElement
         .enter().append('g')
         .attr('class', 'operator')
+        .on('click', (d) ->
+          d.expanded = !d.expanded
+          render(queryPlan)
+        )
+
+        operatorElement
+        .transition()
         .attr('transform', (d) -> "translate(#{d.x},#{d.y})")
 
-        operatorElement.append('rect')
+        rectangles = operatorElement.selectAll('rect').data((d) -> [d])
+
+        rectangles.enter().append('rect')
+
+        rectangles
+        .transition()
         .attr('width', (d) -> Math.max(1, d.throughput))
         .attr('height', operatorHeight)
         .attr('rx', 4)
         .attr('ry', 4)
         .style('fill', (d) -> color(d.operatorType).color)
-        .append('title')
-        .text((d) -> d.name + '\n' + format(d.value))
 
-        textElement = operatorElement.append('text')
+        textElement = operatorElement.selectAll('text').data((d) -> [d])
+
+        textElement.enter().append('text')
         .attr('y', 13)
         .attr('x', 2)
         .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
 
-        textElement.append('tspan')
-        .attr('class', 'operator-name')
-        .text((d) -> d.operatorType)
+        spans = textElement.selectAll('tspan').data((d) -> [
+          { className: 'operator-name', text: d.operatorType },
+          { className: 'operator-identifiers', text: d.IntroducedIdentifier, dx: 5}
+        ]);
 
-        textElement.append('tspan')
-        .attr('class', 'operator-identifiers')
-        .attr('dx', 5)
-        .text((d) -> d.IntroducedIdentifier)
+        spans.enter().append('tspan')
 
-      return @
+        spans
+        .attr('class', (d) -> d.className)
+        .text((d) -> d.text)
+        .attr('dx', (d) -> d.dx)
+
+      @render = render
+
+      @
