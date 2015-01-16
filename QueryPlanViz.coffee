@@ -85,8 +85,9 @@ window.neo.QueryPlanViz =
       operatorWidth = 150
       operatorDetailHeight = 12
       operatorHeight = (d) -> if d.expanded then 20 + operatorDetailHeight * operatorDetails(d).length else 18
-      operatorPadding = 50
-      rankPadding = 50
+      operatorMargin = 50
+      operatorPadding = 2
+      rankMargin = 50
       margin = 10
 
       render = (queryPlan) ->
@@ -101,7 +102,7 @@ window.neo.QueryPlanViz =
 
         rowScale = d3.scale.log()
           .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-          .range([1, (rankPadding) / d3.max(operators, (operator) -> operator.children.length)])
+          .range([1, (rankMargin) / d3.max(operators, (operator) -> operator.children.length)])
 
         linkWidth = (operator) ->
           rowScale(nonZeroRows(operator))
@@ -133,12 +134,12 @@ window.neo.QueryPlanViz =
         currentY = 0
 
         for rank in ranks
-          currentY -= (d3.max(rank.values, operatorHeight) + rankPadding)
+          currentY -= (d3.max(rank.values, operatorHeight) + rankMargin)
           for operator in rank.values
             operator.x = 0
             operator.y = currentY
 
-        width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operator.throughput + operatorPadding))))
+        width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operator.throughput + operatorMargin))))
         height = -currentY
 
         collide = ->
@@ -148,15 +149,15 @@ window.neo.QueryPlanViz =
               dx = x0 - operator.x
               if dx > 0
                 operator.x += dx
-              x0 = operator.x + operator.throughput + operatorPadding
+              x0 = operator.x + operator.throughput + operatorMargin
 
-            dx = x0 - operatorPadding - width
+            dx = x0 - operatorMargin - width
             if dx > 0
               lastOperator = rank.values[rank.values.length - 1]
               x0 = lastOperator.x -= dx
               for i in [rank.values.length - 2..0] by -1
                 operator = rank.values[i]
-                dx = operator.x + operator.throughput + operatorPadding - x0
+                dx = operator.x + operator.throughput + operatorMargin - x0
                 if dx > 0
                   operator.x -= operator.throughput
                   x0 = operator.x
@@ -308,10 +309,14 @@ window.neo.QueryPlanViz =
         .attr('class', 'detail')
 
         operatorDetailsText
-        .attr('x', 2)
+        .attr('x', operatorPadding)
         .attr('y', (d, i) -> 25 + i * operatorDetailHeight)
-        .text((d) -> if d.key then "#{d.key}: #{d.value}" else d.value)
         .attr('fill', (d) -> d.color)
+        .transition()
+        .each('end', ->
+          operatorDetailsText
+          .text((d) -> if d.key then "#{d.key}: #{d.value}" else d.value)
+        )
 
         operatorDetailsText.exit().remove()
 
