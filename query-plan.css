@@ -4,6 +4,5 @@ body {
 
 svg.query-plan {font-size: 10px}
 svg.query-plan .operator tspan{font-size:10px}
-svg.query-plan .operator tspan.operator-identifiers{font-family:monospace}
 svg.query-plan .link path{fill:#000;fill-opacity:.2}
 svg.query-plan .link:hover path{fill-opacity:.5}

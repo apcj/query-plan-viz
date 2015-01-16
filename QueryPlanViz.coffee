@@ -56,37 +56,39 @@ window.neo.QueryPlanViz =
       format = (d) ->
         formatNumber(d) + (if d is 1 then ' row' else ' rows')
 
+      fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
+
       operatorDetails = (operator) ->
         return [] unless operator.expanded
 
         measure = (text) ->
-          neo.utils.measureText(text, "'Helvetica Neue', Helvetica, Arial, sans-serif", '10px')
+          neo.utils.measureText(text, fixedWidthFont, 10)
 
         details = []
-        details.push { key: 'Rows', value: formatNumber(operator.Rows || 0)}
-        details.push { key: 'Db Hits', value: formatNumber(operator.DbHits || 0)}
+        details.push { className: 'rows', key: 'Rows', value: formatNumber(operator.Rows || 0)}
+        if operator.EstimatedRows
+          details.push { className: 'estimated-rows', key: 'Estimated', value: formatNumber(operator.EstimatedRows)}
+        details.push { className: 'db-hits', key: 'Db Hits', value: formatNumber(operator.DbHits || 0)}
         if (expression = operator.LegacyExpression || operator.ExpandExpression)
-          words = expression.split(' ')
+          words = expression.split(/([^a-zA-Z\d])/)
 
           firstWord = 0
           lastWord = 1
           while firstWord < words.length
-            while lastWord < words.length and measure(words.slice(firstWord, lastWord + 1).join(' ')) < operatorWidth
+            while lastWord < words.length and measure(words.slice(firstWord, lastWord + 1).join('')) < operatorWidth - operatorPadding * 2
               lastWord++
-            details.push { value: words.slice(firstWord, lastWord).join(' ') }
+            details.push { className: 'expression', value: words.slice(firstWord, lastWord).join('') }
             firstWord = lastWord
             lastWord = firstWord + 1
 
         if operator.identifiers
-          details.push { key: 'Identifiers', value: operator.identifiers}
-        if operator.EstimatedRows
-          details.push { key: 'Estimated', value: formatNumber(operator.EstimatedRows)}
+          details.push { className: 'identifiers', key: 'Identifiers', value: operator.identifiers}
 
         details
 
-      operatorWidth = 200
+      operatorWidth = 180
       operatorHeaderHeight = 18
-      operatorDetailHeight = 12
+      operatorDetailHeight = 13
       operatorHeight = (d) ->
         if d.expanded
           operatorPadding * 2 + operatorHeaderHeight + operatorDetailHeight * operatorDetails(d).length
@@ -312,28 +314,18 @@ window.neo.QueryPlanViz =
         .attr('x', 2)
         .attr('y', 13)
         .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
-
-        spans = operatorTitleText.selectAll('tspan').data((d) -> [
-          { className: 'operator-name', text: d.operatorType },
-          { className: 'operator-identifiers', text: d.IntroducedIdentifier, dx: 5}
-        ]);
-
-        spans.enter().append('tspan')
-
-        spans
-        .attr('class', (d) -> d.className)
-        .text((d) -> d.text)
-        .attr('dx', (d) -> d.dx)
+        .text((d) -> d.operatorType)
 
         operatorDetailsText = operatorGroup.selectAll('text.detail').data(operatorDetails)
 
         operatorDetailsText.enter().append('text')
-        .attr('class', 'detail')
 
         operatorDetailsText
+        .attr('class', (d) -> 'detail ' + d.className)
         .attr('x', operatorPadding)
         .attr('y', (d, i) -> operatorHeaderHeight + (1 + i) * operatorDetailHeight)
         .attr('fill', 'black')
+        .attr('font-family', (d) -> if d.className is 'expression' then fixedWidthFont else null)
         .transition()
         .each('end', ->
           operatorDetailsText
