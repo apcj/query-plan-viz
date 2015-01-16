@@ -63,30 +63,37 @@ window.neo.QueryPlanViz =
           neo.utils.measureText(text, "'Helvetica Neue', Helvetica, Arial, sans-serif", '10px')
 
         details = []
+        details.push { key: 'Rows', value: formatNumber(operator.Rows || 0)}
+        details.push { key: 'Db Hits', value: formatNumber(operator.DbHits || 0)}
         if (expression = operator.LegacyExpression || operator.ExpandExpression)
           words = expression.split(' ')
-          while (words.length > 0)
-            line = ''
-            while words.length > 0 and measure(line + ' ' + (nextWord = words.pop())) < operatorWidth
-              line += ' ' + nextWord
-            details.push { value: line }
+
+          firstWord = 0
+          lastWord = 1
+          while firstWord < words.length
+            while lastWord < words.length and measure(words.slice(firstWord, lastWord + 1).join(' ')) < operatorWidth
+              lastWord++
+            details.push { value: words.slice(firstWord, lastWord).join(' ') }
+            firstWord = lastWord
+            lastWord = firstWord + 1
 
         if operator.identifiers
           details.push { key: 'Identifiers', value: operator.identifiers}
         if operator.EstimatedRows
           details.push { key: 'Estimated', value: formatNumber(operator.EstimatedRows)}
-        details.push { key: 'Rows', value: formatNumber(operator.Rows || 0)}
-        details.push { key: 'Db Hits', value: formatNumber(operator.DbHits || 0)}
 
-        for detail in details
-          detail.color = color(operator.operatorType)['text-color-internal']
         details
 
-      operatorWidth = 150
+      operatorWidth = 200
+      operatorHeaderHeight = 18
       operatorDetailHeight = 12
-      operatorHeight = (d) -> if d.expanded then 20 + operatorDetailHeight * operatorDetails(d).length else 18
+      operatorHeight = (d) ->
+        if d.expanded
+          operatorPadding * 2 + operatorHeaderHeight + operatorDetailHeight * operatorDetails(d).length
+        else
+          operatorHeaderHeight
       operatorMargin = 50
-      operatorPadding = 2
+      operatorPadding = 3
       rankMargin = 50
       margin = 10
 
@@ -271,17 +278,32 @@ window.neo.QueryPlanViz =
         .transition()
         .attr('transform', (d) -> "translate(#{d.x},#{d.y})")
 
-        rectangles = operatorGroup.selectAll('rect').data((d) -> [d])
+        headers = operatorGroup.selectAll('rect.header').data((d) -> [d])
 
-        rectangles.enter().append('rect')
+        headers.enter().append('rect')
+        .attr('class', 'header')
 
-        rectangles
+        headers
+        .attr('width', (d) -> Math.max(1, d.throughput))
+        .attr('height', operatorHeaderHeight)
+        .attr('rx', 4)
+        .attr('ry', 4)
+        .style('fill', (d) -> color(d.operatorType).color)
+
+        outlines = operatorGroup.selectAll('rect.outline').data((d) -> [d])
+
+        outlines.enter().append('rect')
+        .attr('class', 'outline')
+
+        outlines
         .transition()
         .attr('width', (d) -> Math.max(1, d.throughput))
         .attr('height', operatorHeight)
         .attr('rx', 4)
         .attr('ry', 4)
-        .style('fill', (d) -> color(d.operatorType).color)
+        .attr('fill', 'none')
+        .attr('stroke-width', 1)
+        .style('stroke', (d) -> color(d.operatorType)['border-color'])
 
         operatorTitleText = operatorGroup.selectAll('text.title').data((d) -> [d])
 
@@ -310,8 +332,8 @@ window.neo.QueryPlanViz =
 
         operatorDetailsText
         .attr('x', operatorPadding)
-        .attr('y', (d, i) -> 25 + i * operatorDetailHeight)
-        .attr('fill', (d) -> d.color)
+        .attr('y', (d, i) -> operatorHeaderHeight + (1 + i) * operatorDetailHeight)
+        .attr('fill', 'black')
         .transition()
         .each('end', ->
           operatorDetailsText
