@@ -52,9 +52,12 @@ window.neo.QueryPlanViz =
       nonZeroRows = (operator) ->
         Math.max(1, rows(operator))
 
+      plural = (noun, count) ->
+        if count is 1 then noun else noun + 's'
+
       formatNumber = d3.format(",.0f")
       format = (d) ->
-        formatNumber(d) + (if d is 1 then ' row' else ' rows')
+        formatNumber(d) + ' ' + plural('row', d)
 
       fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
 
@@ -65,10 +68,6 @@ window.neo.QueryPlanViz =
           neo.utils.measureText(text, fixedWidthFont, 10)
 
         details = []
-        details.push { className: 'rows', key: 'Rows', value: formatNumber(operator.Rows || 0)}
-        if operator.EstimatedRows
-          details.push { className: 'estimated-rows', key: 'Estimated', value: formatNumber(operator.EstimatedRows)}
-        details.push { className: 'db-hits', key: 'Db Hits', value: formatNumber(operator.DbHits || 0)}
         if (expression = operator.LegacyExpression || operator.ExpandExpression)
           words = expression.split(/([^a-zA-Z\d])/)
 
@@ -81,6 +80,12 @@ window.neo.QueryPlanViz =
             firstWord = lastWord
             lastWord = firstWord + 1
 
+          details.push { value: '' } # padding
+
+        details.push { className: 'rows', key: plural('row', operator.Rows || 0), value: formatNumber(operator.Rows || 0)}
+        if operator.EstimatedRows
+          details.push { className: 'estimated-rows', key: 'estimated rows', value: formatNumber(operator.EstimatedRows)}
+        details.push { className: 'db-hits', key: plural('db hit', operator.DbHits || 0), value: formatNumber(operator.DbHits || 0)}
         if operator.identifiers
           details.push { className: 'identifiers', key: 'Identifiers', value: operator.identifiers}
 
@@ -88,7 +93,7 @@ window.neo.QueryPlanViz =
 
       operatorWidth = 180
       operatorHeaderHeight = 18
-      operatorDetailHeight = 13
+      operatorDetailHeight = 14
       operatorHeight = (d) ->
         if d.expanded
           operatorPadding * 2 + operatorHeaderHeight + operatorDetailHeight * operatorDetails(d).length
@@ -316,20 +321,40 @@ window.neo.QueryPlanViz =
         .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
         .text((d) -> d.operatorType)
 
-        operatorDetailsText = operatorGroup.selectAll('text.detail').data(operatorDetails)
+        operatorDetailsGroup = operatorGroup.selectAll('g.detail').data(operatorDetails)
+
+        operatorDetailsGroup.enter().append('g')
+
+        operatorDetailsGroup
+        .attr('class', (d) -> 'detail ' + d.className)
+        .attr('transform', (d, i) -> "translate(0, #{operatorHeaderHeight + (1 + i) * operatorDetailHeight})")
+        .attr('font-family', (d) -> if d.className is 'expression' then fixedWidthFont else null)
+
+        operatorDetailsGroup.exit().remove()
+
+        operatorDetailsText = operatorDetailsGroup.selectAll('text').data((d) ->
+          if d.key
+            [
+              { text: d.value + ' ', align: 'end', x: operatorWidth / 2 }
+              { text: d.key, align: 'start', x: operatorWidth / 2 }
+            ]
+          else
+            [
+              { text: d.value, align: 'start', x: operatorPadding }
+            ]
+        )
 
         operatorDetailsText.enter().append('text')
 
         operatorDetailsText
-        .attr('class', (d) -> 'detail ' + d.className)
-        .attr('x', operatorPadding)
-        .attr('y', (d, i) -> operatorHeaderHeight + (1 + i) * operatorDetailHeight)
+        .attr('x', (d) -> d.x)
+        .attr('text-anchor', (d) -> d.align)
+        .attr('xml:space', 'preserve')
         .attr('fill', 'black')
-        .attr('font-family', (d) -> if d.className is 'expression' then fixedWidthFont else null)
         .transition()
         .each('end', ->
           operatorDetailsText
-          .text((d) -> if d.key then "#{d.key}: #{d.value}" else d.value)
+          .text((d) -> d.text)
         )
 
         operatorDetailsText.exit().remove()
