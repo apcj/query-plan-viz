@@ -276,19 +276,24 @@ window.neo.QueryPlanViz =
         operatorGroup
         .enter().append('g')
         .attr('class', 'operator')
-        .on('click', (d) ->
-          d.expanded = !d.expanded
-          render(queryPlan)
-        )
 
         operatorGroup
         .transition()
         .attr('transform', (d) -> "translate(#{d.x},#{d.y})")
 
-        headers = operatorGroup.selectAll('rect.header').data((d) -> [d])
+        headerGroup = operatorGroup.selectAll('g.header').data((d) -> [d])
+
+        headerGroup.enter().append('g')
+        .attr('class', 'header')
+        .attr('pointer-events', 'all')
+        .on('click', (d) ->
+          d.expanded = !d.expanded
+          render(queryPlan)
+        )
+
+        headers = headerGroup.selectAll('rect').data((d) -> [d])
 
         headers.enter().append('rect')
-        .attr('class', 'header')
 
         headers
         .attr('width', (d) -> Math.max(1, d.throughput))
@@ -296,6 +301,32 @@ window.neo.QueryPlanViz =
         .attr('rx', 4)
         .attr('ry', 4)
         .style('fill', (d) -> color(d.operatorType).color)
+
+        expandHandles = headerGroup.selectAll('path.expand').data((d) -> [d])
+
+        rotateForExpand = (d) ->
+          "translate(#{operatorHeaderHeight / 2}, #{operatorHeaderHeight / 2}) " +
+          "rotate(#{if d.expanded then 90 else 0}) " +
+          "scale(0.5)"
+
+        expandHandles.enter().append('path')
+        .attr('class', 'expand')
+        .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
+        .attr('d', 'M -5 -10 L 8.66 0 L -5 10 Z')
+        .attr('transform', rotateForExpand)
+
+        expandHandles
+        .transition()
+        .attr('transform', rotateForExpand)
+
+        operatorTitleText = headerGroup.selectAll('text.title').data((d) -> [d])
+
+        operatorTitleText.enter().append('text')
+        .attr('class', 'title')
+        .attr('x', operatorHeaderHeight)
+        .attr('y', 13)
+        .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
+        .text((d) -> d.operatorType)
 
         outlines = operatorGroup.selectAll('rect.outline').data((d) -> [d])
 
@@ -311,15 +342,6 @@ window.neo.QueryPlanViz =
         .attr('fill', 'none')
         .attr('stroke-width', 1)
         .style('stroke', (d) -> color(d.operatorType)['border-color'])
-
-        operatorTitleText = operatorGroup.selectAll('text.title').data((d) -> [d])
-
-        operatorTitleText.enter().append('text')
-        .attr('class', 'title')
-        .attr('x', 2)
-        .attr('y', 13)
-        .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
-        .text((d) -> d.operatorType)
 
         operatorDetailsGroup = operatorGroup.selectAll('g.detail').data(operatorDetails)
 
