@@ -59,9 +59,18 @@ window.neo.QueryPlanViz =
       operatorDetails = (operator) ->
         return [] unless operator.expanded
 
+        measure = (text) ->
+          neo.utils.measureText(text, "'Helvetica Neue', Helvetica, Arial, sans-serif", '10px')
+
         details = []
-        if operator.LegacyExpression || operator.ExpandExpression
-          details.push { key: 'Expression', value: (operator.LegacyExpression || operator.ExpandExpression)}
+        if (expression = operator.LegacyExpression || operator.ExpandExpression)
+          words = expression.split(' ')
+          while (words.length > 0)
+            line = ''
+            while words.length > 0 and measure(line + ' ' + (nextWord = words.pop())) < operatorWidth
+              line += ' ' + nextWord
+            details.push { value: line }
+
         if operator.identifiers
           details.push { key: 'Identifiers', value: operator.identifiers}
         if operator.EstimatedRows
@@ -301,7 +310,7 @@ window.neo.QueryPlanViz =
         operatorDetailsText
         .attr('x', 2)
         .attr('y', (d, i) -> 25 + i * operatorDetailHeight)
-        .text((d) -> "#{d.key}: #{d.value}")
+        .text((d) -> if d.key then "#{d.key}: #{d.value}" else d.value)
         .attr('fill', (d) -> d.color)
 
         operatorDetailsText.exit().remove()
