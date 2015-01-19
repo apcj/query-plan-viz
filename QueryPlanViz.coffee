@@ -26,6 +26,15 @@ window.neo = {} unless window.neo
 
 window.neo.QueryPlanViz =
     ($element) ->
+      operatorWidth = 180
+      operatorHeaderHeight = 18
+      operatorDetailHeight = 14
+      operatorMargin = 50
+      operatorPadding = 3
+      rankMargin = 50
+      margin = 10
+      fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
+
       colors = [
         { color: '#A5ABB6', 'border-color': '#9AA1AC', 'text-color-internal': '#FFFFFF' }
         { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
@@ -59,7 +68,6 @@ window.neo.QueryPlanViz =
       format = (d) ->
         formatNumber(d) + ' ' + plural('row', d)
 
-      fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
 
       operatorDetails = (operator) ->
         return [] unless operator.expanded
@@ -91,20 +99,13 @@ window.neo.QueryPlanViz =
 
         details
 
-      operatorWidth = 180
-      operatorHeaderHeight = 18
-      operatorDetailHeight = 14
       operatorHeight = (d) ->
         if d.expanded
           operatorPadding * 2 + operatorHeaderHeight + operatorDetailHeight * operatorDetails(d).length
         else
           operatorHeaderHeight
-      operatorMargin = 50
-      operatorPadding = 3
-      rankMargin = 50
-      margin = 10
 
-      render = (queryPlan) ->
+      transform = (queryPlan) ->
         operators = []
 
         collectOperators = (operator) ->
@@ -115,8 +116,8 @@ window.neo.QueryPlanViz =
         collectOperators queryPlan.root
 
         rowScale = d3.scale.log()
-          .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-          .range([1, (rankMargin) / d3.max(operators, (operator) -> operator.children.length)])
+        .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
+        .range([1, (rankMargin) / d3.max(operators, (operator) -> operator.children.length)])
 
         linkWidth = (operator) ->
           rowScale(nonZeroRows(operator))
@@ -141,6 +142,9 @@ window.neo.QueryPlanViz =
 
         collectLinks queryPlan.root, 0
 
+        [operators, links, linkWidth]
+
+      layout = (operators, linkWidth) ->
         ranks = d3.nest()
         .key((operator) -> operator.rank)
         .entries(operators)
@@ -204,13 +208,15 @@ window.neo.QueryPlanViz =
 
         width = d3.max(operators, (o) -> o.x) - d3.min(operators, (o) -> o.x) + operatorWidth
 
+        [width, height]
+
+      render = (operators, links, width, height, redisplay) ->
         svg = d3.select($element)
 
         svg.transition()
         .attr('width', width)
         .attr('height', height)
         .attr('viewBox', [d3.min(operators, (o) -> o.x) - margin, -margin - height, width + margin * 2, height + margin * 2].join(' '))
-
 
         path = (d) ->
           width = Math.max(1, d.value)
@@ -288,7 +294,7 @@ window.neo.QueryPlanViz =
         .attr('pointer-events', 'all')
         .on('click', (d) ->
           d.expanded = !d.expanded
-          render(queryPlan)
+          redisplay()
         )
 
         headers = headerGroup.selectAll('rect').data((d) -> [d])
@@ -381,6 +387,12 @@ window.neo.QueryPlanViz =
 
         operatorDetailsText.exit().remove()
 
-      @render = render
+      display = (queryPlan) ->
+
+        [operators, links, linkWidth] = transform(queryPlan)
+        [width, height] = layout(operators, linkWidth)
+        render(operators, links, width, height, -> display(queryPlan))
+
+      @display = display
 
       @
