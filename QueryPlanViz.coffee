@@ -218,174 +218,199 @@ window.neo.QueryPlanViz =
         .attr('height', height)
         .attr('viewBox', [d3.min(operators, (o) -> o.x) - margin, -margin - height, width + margin * 2, height + margin * 2].join(' '))
 
-        path = (d) ->
-          width = Math.max(1, d.value)
-          sourceX = d.source.x + (d.source.throughput / 2)
-          targetX = d.target.x + d.tx
-          controlWidth = width / Math.PI
-          if sourceX > targetX
-            controlWidth *= -1
+        join = (parent, children) ->
+          for child in d3.entries(children)
+            selection = parent.selectAll(child.key).data(child.value.data)
+            child.value.selections(selection.enter(), selection, selection.exit())
+            if child.value.children
+              join(selection, child.value.children)
 
-          sourceY = d.source.y + operatorHeight(d.source)
-          targetY = d.target.y
-          yi = d3.interpolateNumber(sourceY, targetY)
-          curvature = .5
-          control1 = yi(curvature)
-          control2 = yi(1 - curvature)
+        join(svg, {
+          '.link':
+            data: links,
+            selections: (enter) ->
+              enter.append('g')
+              .attr('class', 'link')
+             children:
 
-          [
-            'M', (sourceX + width / 2), sourceY,
-            'C', (sourceX + width / 2), control1 - controlWidth,
-            (targetX + width), control2 - controlWidth,
-            (targetX + width), targetY,
-            'L', targetX, targetY,
-            'C', targetX, control2 + controlWidth,
-            (sourceX - width / 2), control1 + controlWidth,
-            (sourceX - width / 2), sourceY,
-            'Z'
-          ].join(' ')
+              'path':
+                data: (d) -> [d]
+                selections: (enter, update) ->
+                  enter
+                  .append('path')
 
-        linkGroup = svg.selectAll('.link')
-        .data(links)
+                  update
+                  .transition()
+                  .attr('d', (d) ->
+                    width = Math.max(1, d.value)
+                    sourceX = d.source.x + (d.source.throughput / 2)
+                    targetX = d.target.x + d.tx
+                    controlWidth = width / Math.PI
+                    if sourceX > targetX
+                      controlWidth *= -1
 
-        linkGroup
-        .enter().append('g')
-        .attr('class', 'link')
+                    sourceY = d.source.y + operatorHeight(d.source)
+                    targetY = d.target.y
+                    yi = d3.interpolateNumber(sourceY, targetY)
+                    curvature = .5
+                    control1 = yi(curvature)
+                    control2 = yi(1 - curvature)
 
-        linkPath = linkGroup.selectAll('path').data((d) -> [d])
+                    [
+                      'M', (sourceX + width / 2), sourceY,
+                      'C', (sourceX + width / 2), control1 - controlWidth,
+                      (targetX + width), control2 - controlWidth,
+                      (targetX + width), targetY,
+                      'L', targetX, targetY,
+                      'C', targetX, control2 + controlWidth,
+                      (sourceX - width / 2), control1 + controlWidth,
+                      (sourceX - width / 2), sourceY,
+                      'Z'
+                    ].join(' '))
 
-        linkPath.enter()
-        .append('path')
+              'text':
+                data: (d) -> [d]
+                selections: (enter, update) ->
+                  enter
+                  .append('text')
 
-        linkPath
-        .transition()
-        .attr('d', path)
+                  update
+                  .transition()
+                  .attr('x', (d) ->
+                    d.source.x + d.source.throughput / 2)
+                  .attr('y', (d) ->
+                    d.target.y - 20)
+                  .attr('text-anchor', 'middle')
+                  .text((d) ->
+                    format(d.rows))
 
-        linkText = linkGroup.selectAll('text').data((d) -> [d])
+          '.operator':
+            data: operators
+            selections: (enter, update) ->
+              enter
+              .append('g')
+              .attr('class', 'operator')
 
-        linkText.enter()
-        .append('text')
+              update
+              .transition()
+              .attr('transform', (d) -> "translate(#{d.x},#{d.y})")
+            children:
 
-        linkText
-        .transition()
-        .attr('x', (d) ->
-          d.source.x + d.source.throughput / 2)
-        .attr('y', (d) ->
-          d.target.y - 20)
-        .attr('text-anchor', 'middle')
-        .text((d) ->
-          format(d.rows))
+              'g.header':
+                data: (d) -> [d]
+                selections: (enter) ->
+                  enter
+                  .append('g')
+                  .attr('class', 'header')
+                  .attr('pointer-events', 'all')
+                  .on('click', (d) ->
+                    d.expanded = !d.expanded
+                    redisplay()
+                  )
+                children:
 
-        operatorGroup = svg.selectAll('.operator')
-        .data(operators)
+                  'rect':
+                    data: (d) -> [d]
+                    selections: (enter, update) ->
+                      enter
+                      .append('rect')
 
-        operatorGroup
-        .enter().append('g')
-        .attr('class', 'operator')
+                      update
+                      .attr('width', (d) -> Math.max(1, d.throughput))
+                      .attr('height', operatorHeaderHeight)
+                      .attr('rx', 4)
+                      .attr('ry', 4)
+                      .style('fill', (d) -> color(d.operatorType).color)
 
-        operatorGroup
-        .transition()
-        .attr('transform', (d) -> "translate(#{d.x},#{d.y})")
+                  'path.expand':
+                    data: (d) -> [d]
+                    selections: (enter, update) ->
+                      rotateForExpand = (d) ->
+                        "translate(#{operatorHeaderHeight / 2}, #{operatorHeaderHeight / 2}) " +
+                        "rotate(#{if d.expanded then 90 else 0}) " +
+                        "scale(0.5)"
 
-        headerGroup = operatorGroup.selectAll('g.header').data((d) -> [d])
+                      enter
+                      .append('path')
+                      .attr('class', 'expand')
+                      .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
+                      .attr('d', 'M -5 -10 L 8.66 0 L -5 10 Z')
+                      .attr('transform', rotateForExpand)
 
-        headerGroup.enter().append('g')
-        .attr('class', 'header')
-        .attr('pointer-events', 'all')
-        .on('click', (d) ->
-          d.expanded = !d.expanded
-          redisplay()
-        )
+                      update
+                      .transition()
+                      .attr('transform', rotateForExpand)
 
-        headers = headerGroup.selectAll('rect').data((d) -> [d])
+                  'text.title':
+                    data: (d) -> [d]
+                    selections: (enter) ->
+                      enter
+                      .append('text')
+                      .attr('class', 'title')
+                      .attr('x', operatorHeaderHeight)
+                      .attr('y', 13)
+                      .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
+                      .text((d) -> d.operatorType)
 
-        headers.enter().append('rect')
+              'rect.outline':
+                data: (d) -> [d]
+                selections: (enter, update) ->
+                  enter
+                  .append('rect')
+                  .attr('class', 'outline')
 
-        headers
-        .attr('width', (d) -> Math.max(1, d.throughput))
-        .attr('height', operatorHeaderHeight)
-        .attr('rx', 4)
-        .attr('ry', 4)
-        .style('fill', (d) -> color(d.operatorType).color)
+                  update
+                  .transition()
+                  .attr('width', (d) -> Math.max(1, d.throughput))
+                  .attr('height', operatorHeight)
+                  .attr('rx', 4)
+                  .attr('ry', 4)
+                  .attr('fill', 'none')
+                  .attr('stroke-width', 1)
+                  .style('stroke', (d) -> color(d.operatorType)['border-color'])
 
-        expandHandles = headerGroup.selectAll('path.expand').data((d) -> [d])
+              'g.detail':
+                data: operatorDetails
+                selections: (enter, update, exit) ->
+                  enter
+                  .append('g')
 
-        rotateForExpand = (d) ->
-          "translate(#{operatorHeaderHeight / 2}, #{operatorHeaderHeight / 2}) " +
-          "rotate(#{if d.expanded then 90 else 0}) " +
-          "scale(0.5)"
+                  update
+                  .attr('class', (d) -> 'detail ' + d.className)
+                  .attr('transform', (d, i) -> "translate(0, #{operatorHeaderHeight + (1 + i) * operatorDetailHeight})")
+                  .attr('font-family', (d) -> if d.className is 'expression' then fixedWidthFont else null)
 
-        expandHandles.enter().append('path')
-        .attr('class', 'expand')
-        .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
-        .attr('d', 'M -5 -10 L 8.66 0 L -5 10 Z')
-        .attr('transform', rotateForExpand)
+                  exit.remove()
+                children:
 
-        expandHandles
-        .transition()
-        .attr('transform', rotateForExpand)
+                  'text':
+                    data: (d) ->
+                      if d.key
+                        [
+                          { text: d.value + ' ', align: 'end', x: operatorWidth / 2 }
+                          { text: d.key, align: 'start', x: operatorWidth / 2 }
+                        ]
+                      else
+                        [
+                          { text: d.value, align: 'start', x: operatorPadding }
+                        ]
+                    selections: (enter, update, exit) ->
+                      enter
+                      .append('text')
 
-        operatorTitleText = headerGroup.selectAll('text.title').data((d) -> [d])
+                      update
+                      .attr('x', (d) -> d.x)
+                      .attr('text-anchor', (d) -> d.align)
+                      .attr('xml:space', 'preserve')
+                      .attr('fill', 'black')
+                      .transition()
+                      .each('end', ->
+                        update
+                        .text((d) -> d.text)
+                      )
 
-        operatorTitleText.enter().append('text')
-        .attr('class', 'title')
-        .attr('x', operatorHeaderHeight)
-        .attr('y', 13)
-        .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
-        .text((d) -> d.operatorType)
-
-        outlines = operatorGroup.selectAll('rect.outline').data((d) -> [d])
-
-        outlines.enter().append('rect')
-        .attr('class', 'outline')
-
-        outlines
-        .transition()
-        .attr('width', (d) -> Math.max(1, d.throughput))
-        .attr('height', operatorHeight)
-        .attr('rx', 4)
-        .attr('ry', 4)
-        .attr('fill', 'none')
-        .attr('stroke-width', 1)
-        .style('stroke', (d) -> color(d.operatorType)['border-color'])
-
-        operatorDetailsGroup = operatorGroup.selectAll('g.detail').data(operatorDetails)
-
-        operatorDetailsGroup.enter().append('g')
-
-        operatorDetailsGroup
-        .attr('class', (d) -> 'detail ' + d.className)
-        .attr('transform', (d, i) -> "translate(0, #{operatorHeaderHeight + (1 + i) * operatorDetailHeight})")
-        .attr('font-family', (d) -> if d.className is 'expression' then fixedWidthFont else null)
-
-        operatorDetailsGroup.exit().remove()
-
-        operatorDetailsText = operatorDetailsGroup.selectAll('text').data((d) ->
-          if d.key
-            [
-              { text: d.value + ' ', align: 'end', x: operatorWidth / 2 }
-              { text: d.key, align: 'start', x: operatorWidth / 2 }
-            ]
-          else
-            [
-              { text: d.value, align: 'start', x: operatorPadding }
-            ]
-        )
-
-        operatorDetailsText.enter().append('text')
-
-        operatorDetailsText
-        .attr('x', (d) -> d.x)
-        .attr('text-anchor', (d) -> d.align)
-        .attr('xml:space', 'preserve')
-        .attr('fill', 'black')
-        .transition()
-        .each('end', ->
-          operatorDetailsText
-          .text((d) -> d.text)
-        )
-
-        operatorDetailsText.exit().remove()
+                      exit.remove()
+        })
 
       display = (queryPlan) ->
 
