@@ -27,6 +27,7 @@ neo.queryPlan = (element)->
   operatorDetailHeight = 14
   operatorMargin = 50
   operatorPadding = 3
+  linkLabelMargin = 20
   rankMargin = 50
   margin = 10
   fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
@@ -280,7 +281,7 @@ neo.queryPlan = (element)->
               .attr('x', (d) ->
                 d.source.x + d.source.throughput / 2)
               .attr('y', (d) ->
-                d.target.y - 20)
+                d.source.y + operatorHeight(d.source) + linkLabelMargin)
               .attr('text-anchor', 'middle')
               .text((d) ->
                 format(d.rows))
