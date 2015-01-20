@@ -2,7 +2,7 @@
 <html>
 <head>
   <script src="textMeasurement.js"></script>
-  <script src="QueryPlanViz.js"></script>
+  <script src="queryPlan.js"></script>
   <script src="example_plans.js"></script>
   <script src="d3.v3.min.js"></script>
   <link rel="stylesheet" href="query-plan.css">
@@ -16,7 +16,7 @@
       .attr('class', 'query-plan')
       .each(function(query) {
         if (query && query.plan) {
-         neo.QueryPlanViz(this).display(query.plan);
+         neo.queryPlan(this).display(query.plan);
         }
       });
 </script>
