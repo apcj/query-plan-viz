@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 neo.queryPlan = (element)->
 
   operatorWidth = 180
+  operatorCornerRadius = 4
   operatorHeaderHeight = 18
   operatorDetailHeight = 14
   operatorMargin = 50
@@ -119,7 +120,7 @@ neo.queryPlan = (element)->
 
     rowScale = d3.scale.log()
     .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-    .range([1, (rankMargin) / d3.max(operators, (operator) -> operator.children.length)])
+    .range([1, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
 
     linkWidth = (operator) ->
       rowScale(nonZeroRows(operator))
@@ -247,17 +248,18 @@ neo.queryPlan = (element)->
                 width = Math.max(1, d.value)
                 sourceX = d.source.x + (d.source.throughput / 2)
                 targetX = d.target.x + d.tx
-                controlWidth = width / Math.PI
-                if sourceX > targetX
-                  controlWidth *= -1
 
                 sourceY = d.source.y + operatorHeight(d.source)
                 targetY = d.target.y
                 yi = d3.interpolateNumber(sourceY, targetY)
+
                 curvature = .5
                 control1 = yi(curvature)
                 control2 = yi(1 - curvature)
 
+                controlWidth = Math.min(width / Math.PI, (targetY - sourceY) / 4)
+                if sourceX > targetX + width / 2
+                  controlWidth *= -1
                 [
                   'M', (sourceX + width / 2), sourceY,
                   'C', (sourceX + width / 2), control1 - controlWidth,
@@ -320,8 +322,8 @@ neo.queryPlan = (element)->
                   update
                   .attr('width', (d) -> Math.max(1, d.throughput))
                   .attr('height', operatorHeaderHeight)
-                  .attr('rx', 4)
-                  .attr('ry', 4)
+                  .attr('rx', operatorCornerRadius)
+                  .attr('ry', operatorCornerRadius)
                   .style('fill', (d) -> color(d.operatorType).color)
 
               'path.expand':
