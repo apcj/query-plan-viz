@@ -33,18 +33,29 @@ neo.queryPlan = (element)->
   margin = 10
   fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
 
-  colors = [
-    { color: '#A5ABB6', 'border-color': '#9AA1AC', 'text-color-internal': '#FFFFFF' }
-    { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
-    { color: '#6DCE9E', 'border-color': '#60B58B', 'text-color-internal': '#FFFFFF' }
-    { color: '#FF756E', 'border-color': '#E06760', 'text-color-internal': '#FFFFFF' }
-    { color: '#DE9BF9', 'border-color': '#BF85D6', 'text-color-internal': '#FFFFFF' }
-    { color: '#FB95AF', 'border-color': '#E0849B', 'text-color-internal': '#FFFFFF' }
-    { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
-  ]
+  colors =
+    gray:    { color: '#A5ABB6', 'border-color': '#9AA1AC', 'text-color-internal': '#FFFFFF' }
+    blue:    { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
+    green:   { color: '#6DCE9E', 'border-color': '#60B58B', 'text-color-internal': '#FFFFFF' }
+    red:     { color: '#FF756E', 'border-color': '#E06760', 'text-color-internal': '#FFFFFF' }
+    magenta: { color: '#DE9BF9', 'border-color': '#BF85D6', 'text-color-internal': '#FFFFFF' }
+    pink:    { color: '#FB95AF', 'border-color': '#E0849B', 'text-color-internal': '#FFFFFF' }
+    yellow:  { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
+    white:   { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
 
-  color = d3.scale.ordinal()
-  .range(colors);
+  operatorColors =
+    blue: ['scan', 'seek']
+    yellow: ['expand', 'product']
+    green: ['select', 'apply']
+    pink: ['limit', 'skip', 'sort', 'union', 'projection']
+
+  color = (d) ->
+    return colors.white
+    for name, keywords of operatorColors
+      for keyword in keywords
+        if new RegExp(keyword, 'i').test(d)
+          return colors[name]
+    colors.gray
 
   # TODO: remove this function once all query plans have numeric counts.
   parseNumbers = (operator) ->
@@ -102,12 +113,6 @@ neo.queryPlan = (element)->
 
     details
 
-  operatorHeight = (d) ->
-    if d.expanded
-      operatorPadding * 2 + operatorHeaderHeight + operatorDetailHeight * operatorDetails(d).length
-    else
-      operatorHeaderHeight
-
   transform = (queryPlan) ->
     operators = []
 
@@ -118,12 +123,26 @@ neo.queryPlan = (element)->
 
     collectOperators queryPlan.root
 
-    rowScale = d3.scale.log()
-    .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-    .range([1, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
+    linkWidth = do ->
+      scale = d3.scale.log()
+      .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
+      .range([1, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
+      (operator) ->
+        scale(nonZeroRows(operator))
 
-    linkWidth = (operator) ->
-      rowScale(nonZeroRows(operator))
+    costHeight = do ->
+      scale = d3.scale.linear()
+      .domain([0, d3.sum(operators, (operator) -> operator.DbHits or 0)])
+      .range([0, 100])
+      (operator) ->
+        scale(operator.DbHits or 0)
+
+    operatorHeight = (operator) ->
+      height = operatorHeaderHeight
+      if operator.expanded
+        height += operatorPadding * 2 + operatorDetailHeight * operatorDetails(operator).length
+      height += costHeight(operator)
+      height
 
     links = []
 
@@ -145,9 +164,9 @@ neo.queryPlan = (element)->
 
     collectLinks queryPlan.root, 0
 
-    [operators, links, linkWidth]
+    [operators, links, linkWidth, costHeight, operatorHeight]
 
-  layout = (operators, linkWidth) ->
+  layout = (operators, linkWidth, operatorHeight) ->
     ranks = d3.nest()
     .key((operator) -> operator.rank)
     .entries(operators)
@@ -213,7 +232,7 @@ neo.queryPlan = (element)->
 
     [width, height]
 
-  render = (operators, links, width, height, redisplay) ->
+  render = (operators, links, width, height, costHeight, operatorHeight, redisplay) ->
     svg = d3.select(element)
 
     svg.transition()
@@ -322,8 +341,8 @@ neo.queryPlan = (element)->
                   update
                   .attr('width', (d) -> Math.max(1, d.throughput))
                   .attr('height', operatorHeaderHeight)
-                  .attr('rx', operatorCornerRadius)
-                  .attr('ry', operatorCornerRadius)
+#                  .attr('rx', operatorCornerRadius)
+#                  .attr('ry', operatorCornerRadius)
                   .style('fill', (d) -> color(d.operatorType).color)
 
               'path.expand':
@@ -367,8 +386,8 @@ neo.queryPlan = (element)->
               .transition()
               .attr('width', (d) -> Math.max(1, d.throughput))
               .attr('height', operatorHeight)
-              .attr('rx', 4)
-              .attr('ry', 4)
+#              .attr('rx', 4)
+#              .attr('ry', 4)
               .attr('fill', 'none')
               .attr('stroke-width', 1)
               .style('stroke', (d) -> color(d.operatorType)['border-color'])
@@ -418,12 +437,26 @@ neo.queryPlan = (element)->
                   )
 
                   exit.remove()
+
+          'rect.cost':
+            data: (d) -> [d]
+            selections: (enter, update) ->
+              enter
+              .append('rect')
+              .attr('class', 'cost')
+
+              update
+              .attr('width', operatorWidth)
+              .attr('fill', colors.red.color)
+              .transition()
+              .attr('y', (d) -> operatorHeight(d) - costHeight(d))
+              .attr('height', costHeight)
     })
 
   display = (queryPlan) ->
 
-    [operators, links, linkWidth] = transform(queryPlan)
-    [width, height] = layout(operators, linkWidth)
-    render(operators, links, width, height, -> display(queryPlan))
+    [operators, links, linkWidth, costHeight, operatorHeight] = transform(queryPlan)
+    [width, height] = layout(operators, linkWidth, operatorHeight)
+    render(operators, links, width, height, costHeight, operatorHeight, -> display(queryPlan))
   @display = display
   @
