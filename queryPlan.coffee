@@ -340,8 +340,8 @@ neo.queryPlan = (element)->
                   update
                   .attr('width', operatorWidth)
                   .attr('height', operatorHeaderHeight)
-#                  .attr('rx', operatorCornerRadius)
-#                  .attr('ry', operatorCornerRadius)
+                  .attr('rx', operatorCornerRadius)
+                  .attr('ry', operatorCornerRadius)
                   .style('fill', (d) -> color(d.operatorType).color)
 
               'path.expand':
@@ -385,8 +385,8 @@ neo.queryPlan = (element)->
               .transition()
               .attr('width', operatorWidth)
               .attr('height', (d) -> d.height)
-#              .attr('rx', 4)
-#              .attr('ry', 4)
+              .attr('rx', operatorCornerRadius)
+              .attr('ry', operatorCornerRadius)
               .attr('fill', 'none')
               .attr('stroke-width', 1)
               .style('stroke', (d) -> color(d.operatorType)['border-color'])
@@ -437,19 +437,27 @@ neo.queryPlan = (element)->
 
                   exit.remove()
 
-          'rect.cost':
+          'path.cost':
             data: (d) -> [d]
             selections: (enter, update) ->
               enter
-              .append('rect')
+              .append('path')
               .attr('class', 'cost')
 
               update
-              .attr('width', operatorWidth)
               .attr('fill', colors.red.color)
               .transition()
-              .attr('y', (d) -> d.height - d.costHeight)
-              .attr('height', (d) -> d.costHeight)
+              .attr('d', (d) ->
+                [
+                  'M', 0, d.height - d.costHeight
+                  'L', operatorWidth, d.height - d.costHeight
+                  'L', operatorWidth, d.height - operatorCornerRadius
+                  'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorWidth - operatorCornerRadius, d.height
+                  'L', operatorCornerRadius, d.height
+                  'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, 0, d.height - operatorCornerRadius
+                  'Z'
+                ].join(' ')
+              )
     })
 
   display = (queryPlan) ->
