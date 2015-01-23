@@ -109,7 +109,8 @@ neo.queryPlan = (element)->
     details.push { className: 'rows', key: plural('row', operator.Rows || 0), value: formatNumber(operator.Rows || 0)}
     if operator.EstimatedRows
       details.push { className: 'estimated-rows', key: 'estimated rows', value: formatNumber(operator.EstimatedRows)}
-    details.push { className: 'db-hits', key: plural('db hit', operator.DbHits || 0), value: formatNumber(operator.DbHits || 0)}
+    unless operator.alwaysShowCost
+      details.push { className: 'db-hits', key: plural('db hit', operator.DbHits || 0), value: formatNumber(operator.DbHits || 0)}
 
     details
 
@@ -157,6 +158,8 @@ neo.queryPlan = (element)->
     for operator in operators
       operator.height = operatorHeight(operator)
       operator.costHeight = costHeight(operator)
+      if operator.costHeight > operatorDetailHeight + operatorPadding
+        operator.alwaysShowCost = true
       childrenWidth = d3.sum(operator.children, linkWidth)
       tx = (operatorWidth - childrenWidth) / 2
       for child in operator.children
@@ -457,6 +460,33 @@ neo.queryPlan = (element)->
                   'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, 0, d.height - operatorCornerRadius
                   'Z'
                 ].join(' ')
+              )
+
+          'text.cost':
+            data: (d) ->
+              if d.alwaysShowCost
+                y = d.height - d.costHeight + operatorDetailHeight
+                [
+                  { text: formatNumber(d.DbHits) + ' ', align: 'end', y: y }
+                  { text: 'db hits', align: 'start', y: y }
+                ]
+              else
+                []
+            selections: (enter, update) ->
+              enter
+              .append('text')
+              .attr('class', 'cost')
+
+              update
+              .attr('x', operatorWidth / 2)
+              .attr('text-anchor', (d) -> d.align)
+              .attr('xml:space', 'preserve')
+              .attr('fill', 'black')
+              .transition()
+              .attr('y', (d) -> d.y)
+              .each('end', ->
+                update
+                .text((d) -> d.text)
               )
     })
 
