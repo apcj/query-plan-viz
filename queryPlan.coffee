@@ -115,21 +115,24 @@ neo.queryPlan = (element)->
 
   transform = (queryPlan) ->
     operators = []
+    links = []
 
-    collectOperators = (operator) ->
+    collectLinks = (operator, rank) ->
       operators.push parseNumbers(operator)
+      operator.rank = rank
       for child in operator.children
-        collectOperators child
+        child.parent = operator
+        collectLinks child, rank + 1
+        links.push
+          source: child
+          target: operator
+          rows: rows(child)
 
-    collectOperators queryPlan.root
+    collectLinks queryPlan.root, 0
 
-    linkWidth = do ->
-      scale = d3.scale.log()
-      .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-      .range([1, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
-      (operator) ->
-        scale(nonZeroRows(operator))
+    [operators, links]
 
+  layout = (operators, links) ->
     costHeight = do ->
       scale = d3.scale.linear()
       .domain([0, d3.sum(operators, (operator) -> operator.DbHits or 0)])
@@ -144,29 +147,25 @@ neo.queryPlan = (element)->
       height += costHeight(operator)
       height
 
-    links = []
+    linkWidth = do ->
+      scale = d3.scale.log()
+      .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
+      .range([1, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
+      (operator) ->
+        scale(nonZeroRows(operator))
 
-    collectLinks = (operator, rank) ->
-      operator.rank = rank
-      operator.throughput = operatorWidth
+    for operator in operators
+      operator.height = operatorHeight(operator)
+      operator.costHeight = costHeight(operator)
       childrenWidth = d3.sum(operator.children, linkWidth)
-      tx = (operator.throughput - childrenWidth) / 2
+      tx = (operatorWidth - childrenWidth) / 2
       for child in operator.children
-        child.parent = operator
-        collectLinks child, rank + 1
-        links.push
-          source: child
-          target: operator
-          value: linkWidth(child)
-          rows: rows(child)
-          tx: tx
+        child.tx = tx
         tx += linkWidth(child)
 
-    collectLinks queryPlan.root, 0
+    for link in links
+      link.width = linkWidth(link.source)
 
-    [operators, links, linkWidth, costHeight, operatorHeight]
-
-  layout = (operators, linkWidth, operatorHeight) ->
     ranks = d3.nest()
     .key((operator) -> operator.rank)
     .entries(operators)
@@ -179,7 +178,7 @@ neo.queryPlan = (element)->
         operator.x = 0
         operator.y = currentY
 
-    width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operator.throughput + operatorMargin))))
+    width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operatorWidth + operatorMargin))))
     height = -currentY
 
     collide = ->
@@ -189,7 +188,7 @@ neo.queryPlan = (element)->
           dx = x0 - operator.x
           if dx > 0
             operator.x += dx
-          x0 = operator.x + operator.throughput + operatorMargin
+          x0 = operator.x + operatorWidth + operatorMargin
 
         dx = x0 - operatorMargin - width
         if dx > 0
@@ -197,13 +196,13 @@ neo.queryPlan = (element)->
           x0 = lastOperator.x -= dx
           for i in [rank.values.length - 2..0] by -1
             operator = rank.values[i]
-            dx = operator.x + operator.throughput + operatorMargin - x0
+            dx = operator.x + operatorWidth + operatorMargin - x0
             if dx > 0
-              operator.x -= operator.throughput
+              operator.x -= operatorWidth
               x0 = operator.x
 
     center = (operator) ->
-      operator.x + operator.throughput / 2
+      operator.x + operatorWidth / 2
 
     relaxUpwards = (alpha) ->
       for rank in ranks
@@ -232,7 +231,7 @@ neo.queryPlan = (element)->
 
     [width, height]
 
-  render = (operators, links, width, height, costHeight, operatorHeight, redisplay) ->
+  render = (operators, links, width, height, redisplay) ->
     svg = d3.select(element)
 
     svg.transition()
@@ -264,11 +263,11 @@ neo.queryPlan = (element)->
               update
               .transition()
               .attr('d', (d) ->
-                width = Math.max(1, d.value)
-                sourceX = d.source.x + (d.source.throughput / 2)
-                targetX = d.target.x + d.tx
+                width = Math.max(1, d.width)
+                sourceX = d.source.x + operatorWidth / 2
+                targetX = d.target.x + d.source.tx
 
-                sourceY = d.source.y + operatorHeight(d.source)
+                sourceY = d.source.y + d.source.height
                 targetY = d.target.y
                 yi = d3.interpolateNumber(sourceY, targetY)
 
@@ -300,9 +299,9 @@ neo.queryPlan = (element)->
               update
               .transition()
               .attr('x', (d) ->
-                d.source.x + d.source.throughput / 2)
+                d.source.x + operatorWidth / 2)
               .attr('y', (d) ->
-                d.source.y + operatorHeight(d.source) + linkLabelMargin)
+                d.source.y + d.source.height + linkLabelMargin)
               .attr('text-anchor', 'middle')
               .text((d) ->
                 format(d.rows))
@@ -339,7 +338,7 @@ neo.queryPlan = (element)->
                   .append('rect')
 
                   update
-                  .attr('width', (d) -> Math.max(1, d.throughput))
+                  .attr('width', operatorWidth)
                   .attr('height', operatorHeaderHeight)
 #                  .attr('rx', operatorCornerRadius)
 #                  .attr('ry', operatorCornerRadius)
@@ -384,8 +383,8 @@ neo.queryPlan = (element)->
 
               update
               .transition()
-              .attr('width', (d) -> Math.max(1, d.throughput))
-              .attr('height', operatorHeight)
+              .attr('width', operatorWidth)
+              .attr('height', (d) -> d.height)
 #              .attr('rx', 4)
 #              .attr('ry', 4)
               .attr('fill', 'none')
@@ -449,14 +448,14 @@ neo.queryPlan = (element)->
               .attr('width', operatorWidth)
               .attr('fill', colors.red.color)
               .transition()
-              .attr('y', (d) -> operatorHeight(d) - costHeight(d))
-              .attr('height', costHeight)
+              .attr('y', (d) -> d.height - d.costHeight)
+              .attr('height', (d) -> d.costHeight)
     })
 
   display = (queryPlan) ->
 
-    [operators, links, linkWidth, costHeight, operatorHeight] = transform(queryPlan)
-    [width, height] = layout(operators, linkWidth, operatorHeight)
-    render(operators, links, width, height, costHeight, operatorHeight, -> display(queryPlan))
+    [operators, links] = transform(queryPlan)
+    [width, height] = layout(operators, links)
+    render(operators, links, width, height, -> display(queryPlan))
   @display = display
   @
