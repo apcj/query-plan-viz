@@ -57,15 +57,8 @@ neo.queryPlan = (element)->
           return colors[name]
     colors.gray
 
-  # TODO: remove this function once all query plans have numeric counts.
-  parseNumbers = (operator) ->
-    for key in ['Rows', 'EstimatedRows', 'DbHits']
-      if operator[key]
-        operator[key] = parseInt(operator[key])
-    operator
-
   rows = (operator) ->
-    operator.Rows || operator.EstimatedRows || 0
+    operator.Rows ? operator.EstimatedRows ? 0
 
   nonZeroRows = (operator) ->
     Math.max(1, rows(operator))
@@ -96,7 +89,7 @@ neo.queryPlan = (element)->
         lastWord = firstWord + 1
 
     if identifiers = operator.identifiers
-      wordWrap(identifiers.join(', '), 'identifiers')
+      wordWrap(identifiers.filter((d) -> not (/^  /.test(d))).join(', '), 'identifiers')
       details.push { value: '' } # padding
 
     if expression = operator.LegacyExpression || operator.ExpandExpression
@@ -115,7 +108,7 @@ neo.queryPlan = (element)->
     links = []
 
     collectLinks = (operator, rank) ->
-      operators.push parseNumbers(operator)
+      operators.push operator
       operator.rank = rank
       for child in operator.children
         child.parent = operator
@@ -176,7 +169,7 @@ neo.queryPlan = (element)->
         operator.x = 0
         operator.y = currentY
 
-    width = d3.max(ranks.map((rank) -> d3.sum(rank.values.map((operator) -> operatorWidth + operatorMargin))))
+    width = d3.max(ranks.map((rank) -> rank.values.length * (operatorWidth + operatorMargin)))
     height = -currentY
 
     collide = ->
@@ -223,7 +216,7 @@ neo.queryPlan = (element)->
       collide()
       relaxDownwards(alpha)
       collide()
-      alpha *= .99
+      alpha *= .98
 
     width = d3.max(operators, (o) -> o.x) - d3.min(operators, (o) -> o.x) + operatorWidth
 
@@ -272,10 +265,10 @@ neo.queryPlan = (element)->
                 curvature = .5
                 control1 = yi(curvature)
                 control2 = yi(1 - curvature)
-
-                controlWidth = Math.min(width / Math.PI, (targetY - sourceY) / 4)
+                controlWidth = Math.min(width / Math.PI, (targetY - sourceY) / Math.PI)
                 if sourceX > targetX + width / 2
                   controlWidth *= -1
+
                 [
                   'M', (sourceX + width / 2), sourceY,
                   'C', (sourceX + width / 2), control1 - controlWidth,
