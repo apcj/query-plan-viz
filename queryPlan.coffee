@@ -25,12 +25,14 @@ neo.queryPlan = (element)->
   operatorWidth = 180
   operatorCornerRadius = 4
   operatorHeaderHeight = 18
+  operatorHeaderFontSize = 11
   operatorDetailHeight = 14
+  detailFontSize = 10
   operatorMargin = 50
   operatorPadding = 3
-  linkLabelMargin = 20
   rankMargin = 50
   margin = 10
+  standardFont = "'Helvetica Neue',Helvetica,Arial,sans-serif"
   fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
 
   colors =
@@ -44,13 +46,13 @@ neo.queryPlan = (element)->
     white:   { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
 
   operatorColors =
-    blue: ['scan', 'seek']
-    yellow: ['expand', 'product']
+    yellow: ['scan', 'seek']
+    red: ['expand', 'product']
     green: ['select', 'apply']
     pink: ['limit', 'skip', 'sort', 'union', 'projection']
 
   color = (d) ->
-    return colors.white
+#    return colors.white
     for name, keywords of operatorColors
       for keyword in keywords
         if new RegExp(keyword, 'i').test(d)
@@ -59,9 +61,6 @@ neo.queryPlan = (element)->
 
   rows = (operator) ->
     operator.Rows ? operator.EstimatedRows ? 0
-
-  nonZeroRows = (operator) ->
-    Math.max(1, rows(operator))
 
   plural = (noun, count) ->
     if count is 1 then noun else noun + 's'
@@ -88,18 +87,29 @@ neo.queryPlan = (element)->
         firstWord = lastWord
         lastWord = firstWord + 1
 
-    if identifiers = operator.identifiers
+    if identifiers = operator.identifiers ? operator.KeyNames?.split(', ')
       wordWrap(identifiers.filter((d) -> not (/^  /.test(d))).join(', '), 'identifiers')
-      details.push { value: '' } # padding
+      details.push { className: 'padding' }
 
     if expression = operator.LegacyExpression || operator.ExpandExpression
       wordWrap(expression, 'expression')
-      details.push { value: '' } # padding
+      details.push { className: 'padding' }
 
     if operator.Rows? and operator.EstimatedRows?
       details.push { className: 'estimated-rows', key: 'estimated rows', value: formatNumber(operator.EstimatedRows)}
     if operator.DbHits? and not operator.alwaysShowCost
       details.push { className: 'db-hits', key: plural('db hit', operator.DbHits || 0), value: formatNumber(operator.DbHits || 0)}
+
+    if details.length and details[details.length - 1].className == 'padding'
+      details.pop()
+
+    y = operatorDetailHeight
+    for detail in details
+      detail.y = y
+      y += if detail.className == 'padding'
+        operatorPadding * 2
+      else
+        operatorDetailHeight
 
     details
 
@@ -132,16 +142,16 @@ neo.queryPlan = (element)->
     operatorHeight = (operator) ->
       height = operatorHeaderHeight
       if operator.expanded
-        height += operatorPadding * 2 + operatorDetailHeight * operatorDetails(operator).length
+        height += operatorDetails(operator).slice(-1)[0].y + operatorPadding * 2
       height += costHeight(operator)
       height
 
     linkWidth = do ->
       scale = d3.scale.log()
-      .domain([1, d3.max(operators, (operator) -> nonZeroRows(operator) + 1)])
-      .range([1, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
+      .domain([1, d3.max(operators, (operator) -> rows(operator) + 1)])
+      .range([2, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
       (operator) ->
-        scale(nonZeroRows(operator))
+        scale(rows(operator) + 1)
 
     for operator in operators
       operator.height = operatorHeight(operator)
@@ -250,6 +260,7 @@ neo.queryPlan = (element)->
             selections: (enter, update) ->
               enter
               .append('path')
+              .attr('fill', colors.blue.color)
 
               update
               .transition()
@@ -284,7 +295,7 @@ neo.queryPlan = (element)->
           'text':
             data: (d) ->
               x = d.source.x + operatorWidth / 2
-              y = d.source.y + d.source.height + linkLabelMargin
+              y = d.source.y + d.source.height + operatorDetailHeight
               source = d.source
               [key, caption] = if source.Rows?
                 ['Rows', 'row']
@@ -297,6 +308,8 @@ neo.queryPlan = (element)->
             selections: (enter, update) ->
               enter
               .append('text')
+              .attr('font-size', detailFontSize)
+              .attr('font-family', standardFont)
 
               update
               .transition()
@@ -331,17 +344,33 @@ neo.queryPlan = (element)->
               )
             children:
 
-              'rect':
+              'path.banner':
                 data: (d) -> [d]
                 selections: (enter, update) ->
                   enter
-                  .append('rect')
+                  .append('path')
+                  .attr('class', 'banner')
 
                   update
-                  .attr('width', operatorWidth)
-                  .attr('height', operatorHeaderHeight)
-                  .attr('rx', operatorCornerRadius)
-                  .attr('ry', operatorCornerRadius)
+                  .attr('d', (d) ->
+                    shaving =
+                      if d.height <= operatorHeaderHeight
+                        operatorCornerRadius
+                      else if d.height < operatorHeaderHeight + operatorCornerRadius
+                        operatorCornerRadius - Math.sqrt(Math.pow(operatorCornerRadius, 2) -
+                            Math.pow(operatorCornerRadius - d.height + operatorHeaderHeight, 2))
+                      else 0
+                    [
+                      'M', operatorWidth - operatorCornerRadius, 0
+                      'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorWidth, operatorCornerRadius
+                      'L', operatorWidth, operatorHeaderHeight - operatorCornerRadius
+                      'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorWidth - shaving, operatorHeaderHeight
+                      'L', shaving, operatorHeaderHeight
+                      'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, 0, operatorHeaderHeight - operatorCornerRadius
+                      'L', 0, operatorCornerRadius
+                      'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorCornerRadius, 0
+                      'Z'
+                    ].join(' '))
                   .style('fill', (d) -> color(d.operatorType).color)
 
               'path.expand':
@@ -369,6 +398,8 @@ neo.queryPlan = (element)->
                   enter
                   .append('text')
                   .attr('class', 'title')
+                  .attr('font-size', operatorHeaderFontSize)
+                  .attr('font-family', standardFont)
                   .attr('x', operatorHeaderHeight)
                   .attr('y', 13)
                   .attr('fill', (d) -> color(d.operatorType)['text-color-internal'])
@@ -399,12 +430,12 @@ neo.queryPlan = (element)->
 
               update
               .attr('class', (d) -> 'detail ' + d.className)
-              .attr('transform', (d, i) -> "translate(0, #{operatorHeaderHeight + (1 + i) * operatorDetailHeight})")
+              .attr('transform', (d) -> "translate(0, #{operatorHeaderHeight + d.y})")
               .attr('font-family', (d) ->
                 if d.className is 'expression' or d.className is 'identifiers'
                   fixedWidthFont
                 else
-                  null)
+                  standardFont)
 
               exit.remove()
             children:
@@ -423,6 +454,7 @@ neo.queryPlan = (element)->
                 selections: (enter, update, exit) ->
                   enter
                   .append('text')
+                  .attr('font-size', detailFontSize)
 
                   update
                   .attr('x', (d) -> d.x)
@@ -437,26 +469,62 @@ neo.queryPlan = (element)->
 
                   exit.remove()
 
+              'path.divider':
+                data: (d) ->
+                  if (d.className == 'padding')
+                    [d]
+                  else
+                    []
+                selections: (enter, update) ->
+                  enter
+                  .append('path')
+                  .attr('class', 'divider')
+                  .attr('visibility', 'hidden')
+
+                  update
+                  .attr('d', [
+                        'M', 0, -operatorPadding * 2
+                        'L', operatorWidth, -operatorPadding * 2
+                      ].join(' '))
+                  .attr('stroke', colors.gray['border-color'])
+                  .transition()
+                  .each('end', ->
+                    update
+                    .attr('visibility', 'visible')
+                  )
+
           'path.cost':
             data: (d) -> [d]
             selections: (enter, update) ->
               enter
               .append('path')
               .attr('class', 'cost')
+              .attr('fill', '#333')
 
               update
-              .attr('fill', colors.red.color)
               .transition()
               .attr('d', (d) ->
-                [
-                  'M', 0, d.height - d.costHeight
-                  'L', operatorWidth, d.height - d.costHeight
-                  'L', operatorWidth, d.height - operatorCornerRadius
-                  'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorWidth - operatorCornerRadius, d.height
-                  'L', operatorCornerRadius, d.height
-                  'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, 0, d.height - operatorCornerRadius
-                  'Z'
-                ].join(' ')
+                if d.costHeight < operatorCornerRadius
+                  shaving = operatorCornerRadius -
+                      Math.sqrt(Math.pow(operatorCornerRadius, 2) - Math.pow(operatorCornerRadius - d.costHeight, 2))
+                  [
+                    'M', operatorWidth - shaving, d.height - d.costHeight
+                    'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorWidth - operatorCornerRadius, d.height
+                    'L', operatorCornerRadius, d.height
+                    'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, shaving, d.height - d.costHeight
+                    'Z'
+                  ].join(' ')
+                else
+                  [
+                    'M', 0, d.height - d.costHeight
+                    'L', operatorWidth, d.height - d.costHeight
+                    'L', operatorWidth, d.height - operatorCornerRadius
+                    'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, operatorWidth - operatorCornerRadius, d.height
+                    'L', operatorCornerRadius, d.height
+                    'A', operatorCornerRadius, operatorCornerRadius, 0, 0, 1, 0, d.height - operatorCornerRadius
+                    'Z'
+                  ].join(' ')
+
               )
 
           'text.cost':
@@ -473,12 +541,14 @@ neo.queryPlan = (element)->
               enter
               .append('text')
               .attr('class', 'cost')
+              .attr('font-size', detailFontSize)
+              .attr('font-family', standardFont)
+              .attr('fill', 'white')
 
               update
               .attr('x', operatorWidth / 2)
               .attr('text-anchor', (d) -> d.anchor)
               .attr('xml:space', 'preserve')
-              .attr('fill', 'black')
               .transition()
               .attr('y', (d) -> d.y)
               .each('end', ->
