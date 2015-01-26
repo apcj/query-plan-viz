@@ -36,28 +36,28 @@ neo.queryPlan = (element)->
   fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
 
   colors =
-    gray:    { color: '#A5ABB6', 'border-color': '#9AA1AC', 'text-color-internal': '#FFFFFF' }
-    blue:    { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
-    green:   { color: '#6DCE9E', 'border-color': '#60B58B', 'text-color-internal': '#FFFFFF' }
-    red:     { color: '#FF756E', 'border-color': '#E06760', 'text-color-internal': '#FFFFFF' }
-    magenta: { color: '#DE9BF9', 'border-color': '#BF85D6', 'text-color-internal': '#FFFFFF' }
-    pink:    { color: '#FB95AF', 'border-color': '#E0849B', 'text-color-internal': '#FFFFFF' }
-    yellow:  { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
+    gray:    { color: '#DFE1E3', 'border-color': '#D4D6D7', 'text-color-internal': '#000000' }
+    red:     { color: '#F25A29', 'border-color': '#DC4717', 'text-color-internal': '#FFFFFF' }
+    magenta: { color: '#AD62CE', 'border-color': '#9453B1', 'text-color-internal': '#FFFFFF' }
+    cyan:    { color: '#30B6AF', 'border-color': '#46A39E', 'text-color-internal': '#FFFFFF' }
+    pink:    { color: '#FF6C7C', 'border-color': '#EB5D6C', 'text-color-internal': '#FFFFFF' }
+    yellow:  { color: '#FCC940', 'border-color': '#F3BA25', 'text-color-internal': '#000000' }
+    blue:    { color: '#4356C0', 'border-color': '#3445A2', 'text-color-internal': '#FFFFFF' }
     white:   { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
 
   operatorColors =
-    yellow: ['scan', 'seek']
-    red: ['expand', 'product']
-    green: ['select', 'apply']
-    pink: ['limit', 'skip', 'sort', 'union', 'projection']
+    yellow: ['scan', 'seek', 'argument', 'result']
+    blue: ['expand', 'product']
+    cyan: ['select', 'filter']
+    red: ['eager']
+    white: ['limit', 'skip', 'sort', 'union', 'projection']
 
   color = (d) ->
-#    return colors.white
     for name, keywords of operatorColors
       for keyword in keywords
         if new RegExp(keyword, 'i').test(d)
           return colors[name]
-    colors.gray
+    colors.white
 
   rows = (operator) ->
     operator.Rows ? operator.EstimatedRows ? 0
@@ -117,6 +117,10 @@ neo.queryPlan = (element)->
     operators = []
     links = []
 
+    result =
+      operatorType: 'Result'
+      children: [queryPlan.root]
+
     collectLinks = (operator, rank) ->
       operators.push operator
       operator.rank = rank
@@ -127,7 +131,7 @@ neo.queryPlan = (element)->
           source: child
           target: operator
 
-    collectLinks queryPlan.root, 0
+    collectLinks result, 0
 
     [operators, links]
 
@@ -260,7 +264,7 @@ neo.queryPlan = (element)->
             selections: (enter, update) ->
               enter
               .append('path')
-              .attr('fill', colors.blue.color)
+              .attr('fill', colors.gray.color)
 
               update
               .transition()
@@ -374,7 +378,7 @@ neo.queryPlan = (element)->
                   .style('fill', (d) -> color(d.operatorType).color)
 
               'path.expand':
-                data: (d) -> [d]
+                data: (d) -> if d.operatorType is 'Result' then [] else [d]
                 selections: (enter, update) ->
                   rotateForExpand = (d) ->
                     "translate(#{operatorHeaderHeight / 2}, #{operatorHeaderHeight / 2}) " +
