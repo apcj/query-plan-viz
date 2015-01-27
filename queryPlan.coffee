@@ -37,27 +37,33 @@ neo.queryPlan = (element)->
 
   colors =
     gray:    { color: '#DFE1E3', 'border-color': '#D4D6D7', 'text-color-internal': '#000000' }
-    red:     { color: '#F25A29', 'border-color': '#DC4717', 'text-color-internal': '#FFFFFF' }
-    magenta: { color: '#AD62CE', 'border-color': '#9453B1', 'text-color-internal': '#FFFFFF' }
-    cyan:    { color: '#30B6AF', 'border-color': '#46A39E', 'text-color-internal': '#FFFFFF' }
-    pink:    { color: '#FF6C7C', 'border-color': '#EB5D6C', 'text-color-internal': '#FFFFFF' }
-    yellow:  { color: '#FCC940', 'border-color': '#F3BA25', 'text-color-internal': '#000000' }
-    blue:    { color: '#4356C0', 'border-color': '#3445A2', 'text-color-internal': '#FFFFFF' }
-    white:   { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
+    blue:    { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
+    green:   { color: '#6DCE9E', 'border-color': '#60B58B', 'text-color-internal': '#FFFFFF' }
+    red:     { color: '#FF756E', 'border-color': '#E06760', 'text-color-internal': '#FFFFFF' }
+    magenta: { color: '#DE9BF9', 'border-color': '#BF85D6', 'text-color-internal': '#FFFFFF' }
+    pink:    { color: '#FB95AF', 'border-color': '#E0849B', 'text-color-internal': '#FFFFFF' }
+    yellow:  { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
+
+    magenta:   { color: '#CD82EE', 'border-color': '#9453B1', 'text-color-internal': '#FFFFFF' }
+    cyan:      { color: '#50D6CF', 'border-color': '#46A39E', 'text-color-internal': '#FFFFFF' }
+    pink:      { color: '#FF6C7C', 'border-color': '#EB5D6C', 'text-color-internal': '#FFFFFF' }
+    darkblue: { color: '#4356C0', 'border-color': '#3445A2', 'text-color-internal': '#FFFFFF' }
+    white:     { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
 
   operatorColors =
-    yellow: ['scan', 'seek', 'argument', 'result']
-    blue: ['expand', 'product']
-    cyan: ['select', 'filter']
-    red: ['eager']
-    white: ['limit', 'skip', 'sort', 'union', 'projection']
+    green: ['scan', 'seek', 'argument']
+    white: ['result']
+#    blue: []
+    magenta: ['select', 'filter']
+    darkblue: ['eager']
+    cyan: ['expand', 'product', 'limit', 'skip', 'sort', 'union', 'projection']
 
   color = (d) ->
     for name, keywords of operatorColors
       for keyword in keywords
         if new RegExp(keyword, 'i').test(d)
           return colors[name]
-    colors.white
+    colors.blue
 
   rows = (operator) ->
     operator.Rows ? operator.EstimatedRows ? 0
@@ -91,7 +97,7 @@ neo.queryPlan = (element)->
       wordWrap(identifiers.filter((d) -> not (/^  /.test(d))).join(', '), 'identifiers')
       details.push { className: 'padding' }
 
-    if expression = operator.LegacyExpression || operator.ExpandExpression
+    if expression = operator.LegacyExpression ? operator.ExpandExpression ? operator.LabelName
       wordWrap(expression, 'expression')
       details.push { className: 'padding' }
 
@@ -503,7 +509,7 @@ neo.queryPlan = (element)->
               enter
               .append('path')
               .attr('class', 'cost')
-              .attr('fill', '#333')
+              .attr('fill', (d) -> color(d.operatorType)['border-color'])
 
               update
               .transition()
