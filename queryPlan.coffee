@@ -34,36 +34,44 @@ neo.queryPlan = (element)->
   margin = 10
   standardFont = "'Helvetica Neue',Helvetica,Arial,sans-serif"
   fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
+#  costColor = '#60B58B'
+  costColor = '#F25A29'
+
+#    gray:      { color: '#DFE1E3', 'border-color': '#D4D6D7', 'text-color-internal': '#000000' }
+#    blue:      { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
+#    magenta:   { color: '#CD82EE', 'border-color': '#9453B1', 'text-color-internal': '#FFFFFF' }
+#    cyan:      { color: '#50D6CF', 'border-color': '#46A39E', 'text-color-internal': '#FFFFFF' }
+#    dark_blue: { color: '#4356C0', 'border-color': '#3445A2', 'text-color-internal': '#FFFFFF' }
+#    white:     { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
+
+  operatorCategories =
+    seek: ['scan', 'seek', 'argument']
+    expand: ['expand', 'product']
+    eager: ['eager']
+    filter: ['select', 'filter']
+    rows: ['limit', 'skip', 'sort', 'union', 'projection']
+    other: []
+    result: ['result']
+
+  augment = (color) ->
+    console.log('lightness', d3.hsl(color).l)
+    {
+      color: color,
+      'border-color': d3.rgb(color).darker(),
+      'text-color-internal': if d3.hsl(color).l < 0.7 then '#FFFFFF' else '#000000'
+    }
 
   colors =
-    gray:    { color: '#DFE1E3', 'border-color': '#D4D6D7', 'text-color-internal': '#000000' }
-    blue:    { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
-    green:   { color: '#6DCE9E', 'border-color': '#60B58B', 'text-color-internal': '#FFFFFF' }
-    red:     { color: '#FF756E', 'border-color': '#E06760', 'text-color-internal': '#FFFFFF' }
-    magenta: { color: '#DE9BF9', 'border-color': '#BF85D6', 'text-color-internal': '#FFFFFF' }
-    pink:    { color: '#FB95AF', 'border-color': '#E0849B', 'text-color-internal': '#FFFFFF' }
-    yellow:  { color: '#FFD86E', 'border-color': '#EDBA39', 'text-color-internal': '#604A0E' }
-
-    magenta:   { color: '#CD82EE', 'border-color': '#9453B1', 'text-color-internal': '#FFFFFF' }
-    cyan:      { color: '#50D6CF', 'border-color': '#46A39E', 'text-color-internal': '#FFFFFF' }
-    pink:      { color: '#FF6C7C', 'border-color': '#EB5D6C', 'text-color-internal': '#FFFFFF' }
-    darkblue: { color: '#4356C0', 'border-color': '#3445A2', 'text-color-internal': '#FFFFFF' }
-    white:     { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
-
-  operatorColors =
-    green: ['scan', 'seek', 'argument']
-    white: ['result']
-#    blue: []
-    magenta: ['select', 'filter']
-    darkblue: ['eager']
-    cyan: ['expand', 'product', 'limit', 'skip', 'sort', 'union', 'projection']
+    d3.scale.ordinal()
+    .domain(['skip', 'skip'].concat(d3.keys(operatorCategories)))
+    .range(colorbrewer.Blues[9]);
 
   color = (d) ->
-    for name, keywords of operatorColors
+    for name, keywords of operatorCategories
       for keyword in keywords
         if new RegExp(keyword, 'i').test(d)
-          return colors[name]
-    colors.blue
+          return augment(colors(name))
+    augment(colors('other'))
 
   rows = (operator) ->
     operator.Rows ? operator.EstimatedRows ? 0
@@ -270,7 +278,7 @@ neo.queryPlan = (element)->
             selections: (enter, update) ->
               enter
               .append('path')
-              .attr('fill', colors.gray.color)
+              .attr('fill', '#DFE1E3')
 
               update
               .transition()
@@ -496,7 +504,7 @@ neo.queryPlan = (element)->
                         'M', 0, -operatorPadding * 2
                         'L', operatorWidth, -operatorPadding * 2
                       ].join(' '))
-                  .attr('stroke', colors.gray['border-color'])
+                  .attr('stroke', '#DFE1E3')
                   .transition()
                   .each('end', ->
                     update
@@ -509,7 +517,7 @@ neo.queryPlan = (element)->
               enter
               .append('path')
               .attr('class', 'cost')
-              .attr('fill', (d) -> color(d.operatorType)['border-color'])
+              .attr('fill', costColor)
 
               update
               .transition()
