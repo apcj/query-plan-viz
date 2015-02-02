@@ -160,8 +160,8 @@ neo.queryPlan = (element)->
 
     linkWidth = do ->
       scale = d3.scale.log()
-      .domain([1, d3.max(operators, (operator) -> rows(operator) + 1)])
-      .range([2, (operatorWidth - operatorCornerRadius * 2) / d3.max(operators, (operator) -> operator.children.length)])
+      .domain([1, Math.max(d3.max(operators, (operator) -> rows(operator) + 1), 1000000)])
+      .range([2, (operatorWidth - operatorCornerRadius * 2) / 2])
       (operator) ->
         scale(rows(operator) + 1)
 
