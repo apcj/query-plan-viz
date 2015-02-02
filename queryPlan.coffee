@@ -22,11 +22,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 neo.queryPlan = (element)->
 
+  maxChildOperators = 2 # Fact we know about the cypher compiler
+  maxComparableRows = 1000000 # link widths are comparable between plans if all operators are below this row count
+  maxComparableDbHits = 1000000 # db hits are comparable between plans if all operators are below this db hit count
+
   operatorWidth = 180
   operatorCornerRadius = 4
   operatorHeaderHeight = 18
   operatorHeaderFontSize = 11
   operatorDetailHeight = 14
+  maxCostHeight = 50
   detailFontSize = 10
   operatorMargin = 50
   operatorPadding = 3
@@ -37,7 +42,7 @@ neo.queryPlan = (element)->
   linkColor = '#DFE1E3'
   costColor = '#F25A29'
   dividerColor = '#DFE1E3'
-  operatorColors = ['#C6DBEF', '#9ECAE1', '#6BAED6', '#4292C6', '#2171B5', '#08519C', '#08306B']
+  operatorColors = colorbrewer.Blues[9].slice(2)
 
   operatorCategories =
     result: ['result']
@@ -50,9 +55,9 @@ neo.queryPlan = (element)->
 
   augment = (color) ->
     {
-      color: color,
-      'border-color': d3.rgb(color).darker(),
-      'text-color-internal': if d3.hsl(color).l < 0.7 then '#FFFFFF' else '#000000'
+    color: color,
+    'border-color': d3.rgb(color).darker(),
+    'text-color-internal': if d3.hsl(color).l < 0.7 then '#FFFFFF' else '#000000'
     }
 
   colors =
@@ -145,11 +150,11 @@ neo.queryPlan = (element)->
 
   layout = (operators, links) ->
     costHeight = do ->
-      scale = d3.scale.linear()
-      .domain([0, d3.sum(operators, (operator) -> operator.DbHits or 0)])
-      .range([0, 100])
+      scale = d3.scale.log()
+      .domain([1, Math.max(d3.max(operators, (operator) -> operator.DbHits or 0), maxComparableDbHits)])
+      .range([0, maxCostHeight])
       (operator) ->
-        scale(operator.DbHits or 0)
+        scale((operator.DbHits ? 0) + 1)
 
     operatorHeight = (operator) ->
       height = operatorHeaderHeight
@@ -160,8 +165,8 @@ neo.queryPlan = (element)->
 
     linkWidth = do ->
       scale = d3.scale.log()
-      .domain([1, Math.max(d3.max(operators, (operator) -> rows(operator) + 1), 1000000)])
-      .range([2, (operatorWidth - operatorCornerRadius * 2) / 2])
+      .domain([1, Math.max(d3.max(operators, (operator) -> rows(operator) + 1), maxComparableRows)])
+      .range([2, (operatorWidth - operatorCornerRadius * 2) / maxChildOperators])
       (operator) ->
         scale(rows(operator) + 1)
 
