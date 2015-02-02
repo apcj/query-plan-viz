@@ -34,27 +34,21 @@ neo.queryPlan = (element)->
   margin = 10
   standardFont = "'Helvetica Neue',Helvetica,Arial,sans-serif"
   fixedWidthFont = "Monaco,'Courier New',Terminal,monospace"
-#  costColor = '#60B58B'
+  linkColor = '#DFE1E3'
   costColor = '#F25A29'
-
-#    gray:      { color: '#DFE1E3', 'border-color': '#D4D6D7', 'text-color-internal': '#000000' }
-#    blue:      { color: '#68BDF6', 'border-color': '#5CA8DB', 'text-color-internal': '#FFFFFF' }
-#    magenta:   { color: '#CD82EE', 'border-color': '#9453B1', 'text-color-internal': '#FFFFFF' }
-#    cyan:      { color: '#50D6CF', 'border-color': '#46A39E', 'text-color-internal': '#FFFFFF' }
-#    dark_blue: { color: '#4356C0', 'border-color': '#3445A2', 'text-color-internal': '#FFFFFF' }
-#    white:     { color: '#FFFFFF', 'border-color': '#9AA1AC', 'text-color-internal': '#000000' }
+  dividerColor = '#DFE1E3'
+  operatorColors = ['#C6DBEF', '#9ECAE1', '#6BAED6', '#4292C6', '#2171B5', '#08519C', '#08306B']
 
   operatorCategories =
-    seek: ['scan', 'seek', 'argument']
-    expand: ['expand', 'product']
-    eager: ['eager']
-    filter: ['select', 'filter']
-    rows: ['limit', 'skip', 'sort', 'union', 'projection']
-    other: []
     result: ['result']
+    seek: ['scan', 'seek', 'argument']
+    rows: ['limit', 'top', 'skip', 'sort', 'union', 'projection']
+    other: []
+    filter: ['select', 'filter', 'apply', 'distinct']
+    expand: ['expand', 'product', 'join', 'optional', 'path']
+    eager: ['eager']
 
   augment = (color) ->
-    console.log('lightness', d3.hsl(color).l)
     {
       color: color,
       'border-color': d3.rgb(color).darker(),
@@ -63,8 +57,8 @@ neo.queryPlan = (element)->
 
   colors =
     d3.scale.ordinal()
-    .domain(['skip', 'skip'].concat(d3.keys(operatorCategories)))
-    .range(colorbrewer.Blues[9]);
+    .domain(d3.keys(operatorCategories))
+    .range(operatorColors);
 
   color = (d) ->
     for name, keywords of operatorCategories
@@ -278,7 +272,7 @@ neo.queryPlan = (element)->
             selections: (enter, update) ->
               enter
               .append('path')
-              .attr('fill', '#DFE1E3')
+              .attr('fill', linkColor)
 
               update
               .transition()
@@ -504,7 +498,7 @@ neo.queryPlan = (element)->
                         'M', 0, -operatorPadding * 2
                         'L', operatorWidth, -operatorPadding * 2
                       ].join(' '))
-                  .attr('stroke', '#DFE1E3')
+                  .attr('stroke', dividerColor)
                   .transition()
                   .each('end', ->
                     update
